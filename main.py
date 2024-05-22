@@ -7,6 +7,7 @@ from lightning.pytorch.loggers import WandbLogger
 import torch
 import wandb
 import torchvision
+import os
 
 torch.set_float32_matmul_precision("high")
 
@@ -14,13 +15,15 @@ torch.set_float32_matmul_precision("high")
 if __name__ == "__main__":
     opt = get_option()
     """定义网络"""
-    model = torchvision.models.resnet18(pretrained=True)
+    from models import resnet
+
+    model = resnet.CNN()
 
     """模型编译"""
-    model = torch.compile(model)
+    # model = torch.compile(model)
 
     """导入数据集"""
-    train_dataloader, valid_dataloader = get_dataloader(opt)
+    train_dataloader = get_dataloader(opt)
 
     """Lightning 模块定义"""
     pl.seed_everything(opt.seed)
@@ -36,22 +39,22 @@ if __name__ == "__main__":
         devices=[opt.devices],
         strategy="auto",
         max_epochs=opt.epochs,
-        precision="bf16-mixed",
+        # precision="bf16-mixed",
         default_root_dir="./",
         deterministic=False,
         logger=wandb_logger,
         val_check_interval=opt.val_check,
         log_every_n_steps=opt.log_step,
         accumulate_grad_batches=opt.accumulate_grad_batches,
-        gradient_clip_val=1.0,
+        # gradient_clip_val=1.0,
         callbacks=[
             pl.callbacks.ModelCheckpoint(
                 dirpath=os.path.join(opt.dataset_root, "checkpoints", opt.exp_name),
-                monitor="valid_loss",
-                mode="min",
+                monitor="valid_F1",
+                mode="max",
                 save_top_k=3,
                 save_last=True,
-                filename="{epoch}-{valid_loss:.4f}",
+                filename="{epoch}-{valid_F1:.4f}",
             ),
         ],
     )
@@ -60,6 +63,6 @@ if __name__ == "__main__":
     trainer.fit(
         LightningModule(opt, model, len(train_dataloader)),
         train_dataloaders=train_dataloader,
-        val_dataloaders=valid_dataloader,
+        # val_dataloaders=valid_dataloader,
     )
     wandb.finish()
