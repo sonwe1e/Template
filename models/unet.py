@@ -23,7 +23,7 @@ class DefineConv(nn.Module):
         self.act = nn.LeakyReLU(inplace=True)
         for m in self.modules():
             if isinstance(m, nn.Conv3d):
-                nn.init.trunc_normal_(m.weight, std=0.08)
+                nn.init.trunc_normal_(m.weight, std=0.06)
                 nn.init.constant_(m.bias, 0)
 
     def forward(self, x):
@@ -116,14 +116,16 @@ class Up(nn.Module):
 class Out(nn.Module):
     def __init__(self, in_channels, num_classes):
         super().__init__()
-        self.conv1 = nn.Conv3d(in_channels, num_classes, 1)
+        self.conv = nn.Conv3d(in_channels, num_classes, 1)
+        self.conv1 = nn.Conv3d(in_channels, num_classes, 1, 1, 0)
 
     def forward(self, x):
-        return self.conv1(x)
+        p = self.conv(x)
+        p = self.conv1(x * p) + p
+        return p
 
 
 class MyNet(nn.Module):
-
     def __init__(
         self,
         in_channels,
