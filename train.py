@@ -1,3 +1,4 @@
+import os
 import torch
 from option import get_option
 from dataset import *
@@ -6,7 +7,6 @@ import lightning.pytorch as pl
 from lightning.pytorch.loggers import WandbLogger
 import torch
 import wandb
-import torchvision
 
 torch.set_float32_matmul_precision("high")
 
@@ -14,10 +14,11 @@ torch.set_float32_matmul_precision("high")
 if __name__ == "__main__":
     opt = get_option()
     """定义网络"""
-    model = torchvision.models.resnet18(pretrained=True)
+    from models.unet import MyNet
 
+    model = MyNet(1, 1, deep_supervision=opt.deep_supervision)
     """模型编译"""
-    model = torch.compile(model)
+    # model = torch.compile(model)
 
     """导入数据集"""
     train_dataloader, valid_dataloader = get_dataloader(opt)
@@ -43,10 +44,9 @@ if __name__ == "__main__":
         val_check_interval=opt.val_check,
         log_every_n_steps=opt.log_step,
         accumulate_grad_batches=opt.accumulate_grad_batches,
-        gradient_clip_val=1.0,
         callbacks=[
             pl.callbacks.ModelCheckpoint(
-                dirpath=os.path.join(opt.dataset_root, "checkpoints", opt.exp_name),
+                dirpath=os.path.join("./checkpoints", opt.exp_name),
                 monitor="valid_loss",
                 mode="min",
                 save_top_k=3,
