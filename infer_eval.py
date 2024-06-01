@@ -8,11 +8,11 @@ import pandas as pd
 from tqdm import tqdm
 
 
-ckpt_path = "/data2/songwei/Segment/checkpoints/baselinev7-lion/epoch=243-valid_loss=0.6344.ckpt"
-prediction_path = "/data2/songwei/Segment/predictions/test/"
+ckpt_path = "/data1/songwei/Segment/checkpoints/baselinev8-1x3x3/epoch=929-valid_loss=0.6248.ckpt"
+prediction_path = "/data1/songwei/Segment/predictions/test/"
 roi_size = (128, 128, 128)
 overlap = (int(128 * 0.5), int(128 * 0.5), int(128 * 0.5))
-device = torch.device("cuda:3")
+device = torch.device("cuda:7")
 gaussian_infer = True
 flip_tta = False
 paths = [prediction_path]
@@ -84,9 +84,9 @@ def slide_window_inference(image, model, roi_size, overlap, device=device):
                     patch = patch.to(device)
                     output_patch = model(patch)[0]
                     if flip_tta:
-                        patch_flipx = model(torch.flip(patch, [4]))
-                        patch_flipy = model(torch.flip(patch, [3]))
-                        patch_flipyx = model(torch.flip(patch, [3, 4]))
+                        patch_flipx = model(torch.flip(patch, [4]))[0]
+                        patch_flipy = model(torch.flip(patch, [3]))[0]
+                        patch_flipyx = model(torch.flip(patch, [3, 4]))[0]
                         output_patch = (
                             output_patch
                             + torch.flip(patch_flipx, [4])
@@ -232,7 +232,7 @@ def predict_from_path(
     model,
     roi_size,
     overlap,
-    images_path="/data2/songwei/Data/raw/Dataset012_BrainVessel/test/image/*",
+    images_path="/data1/songwei/Segment/Data/Dataset012_BrainVessel/test/image/*",
 ):
     image_list = glob.glob(images_path)
     for image_path in tqdm(image_list):
@@ -240,6 +240,7 @@ def predict_from_path(
         image = sitk.GetArrayFromImage(image_meta).astype(np.float32)
 
         image = np.clip(image, 0, np.percentile(image, 99.9))
+        image = (image - np.mean(image)) / np.std(image)
         image = (image - np.min(image)) / (np.max(image) - np.min(image))
         image = 2 * (image - 0.5)
         image = torch.from_numpy(image.copy()).float().unsqueeze(0).unsqueeze(0)
@@ -260,7 +261,7 @@ def predict_from_path(
 
 
 predict_from_path(model, roi_size, overlap)
-label_path = "/data2/songwei/Data/raw/Dataset012_BrainVessel/test/gt"
+label_path = "/data1/songwei/Segment/Data/Dataset012_BrainVessel/test/gt"
 
 
 results = []

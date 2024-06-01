@@ -4,21 +4,49 @@ from torchinfo import summary
 
 
 class DefineConv(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size=[1, 3, 5]):
+    def __init__(self, in_channels, out_channels, kernel_size=[1, 3, 3], expand_rate=1):
         super().__init__()
+        expand_rate = expand_rate
         self.conv_list = nn.ModuleList()
         for _, kernel in enumerate(kernel_size):
-            self.conv_list.append(
-                nn.Sequential(
-                    nn.Conv3d(in_channels, out_channels, kernel, padding=kernel // 2),
-                    nn.InstanceNorm3d(out_channels, affine=False),
+            if _ == 0:
+                self.conv_list.append(
+                    nn.Sequential(
+                        nn.Conv3d(
+                            in_channels,
+                            out_channels * expand_rate,
+                            kernel,
+                            padding=kernel // 2,
+                        ),
+                        nn.InstanceNorm3d(out_channels * expand_rate, affine=False),
+                    )
                 )
-                if _ == 0
-                else nn.Sequential(
-                    nn.Conv3d(out_channels, out_channels, kernel, padding=kernel // 2),
-                    nn.InstanceNorm3d(out_channels, affine=False),
+            elif _ == len(kernel_size) - 1:
+                self.conv_list.append(
+                    nn.Sequential(
+                        nn.Conv3d(
+                            out_channels * expand_rate,
+                            out_channels,
+                            kernel,
+                            padding=kernel // 2,
+                            # groups=out_channels,
+                        ),
+                        nn.InstanceNorm3d(out_channels, affine=False),
+                    )
                 )
-            )
+            else:
+                self.conv_list.append(
+                    nn.Sequential(
+                        nn.Conv3d(
+                            out_channels * expand_rate,
+                            out_channels * expand_rate,
+                            kernel,
+                            padding=kernel // 2,
+                            # groups=out_channels,
+                        ),
+                        nn.InstanceNorm3d(out_channels * expand_rate, affine=False),
+                    )
+                )
         self.residual = in_channels == out_channels
         self.act = nn.LeakyReLU(inplace=True)
         for m in self.modules():
@@ -34,24 +62,6 @@ class DefineConv(nn.Module):
                 x += res if self.residual else x
             x = self.act(x)
         return x
-
-
-class SEBlock(nn.Module):
-    def __init__(self, in_channels, reduction=16):
-        super(SEBlock, self).__init__()
-        self.avg_pool = nn.AdaptiveAvgPool3d(1)
-        self.fc = nn.Sequential(
-            nn.Linear(in_channels, in_channels // reduction, bias=False),
-            nn.ReLU(inplace=True),
-            nn.Linear(in_channels // reduction, in_channels, bias=False),
-            nn.Sigmoid(),
-        )
-
-    def forward(self, x):
-        b, c, _, _, _ = x.size()
-        y = self.avg_pool(x).view(b, c)
-        y = self.fc(y).view(b, c, 1, 1, 1)
-        return x * y.expand_as(x)
 
 
 class Down(nn.Module):
@@ -116,12 +126,10 @@ class Up(nn.Module):
 class Out(nn.Module):
     def __init__(self, in_channels, num_classes):
         super().__init__()
-        self.conv = nn.Conv3d(in_channels, num_classes, 1)
-        self.conv1 = nn.Conv3d(in_channels, num_classes, 1, 1, 0)
+        self.conv1 = nn.Conv3d(in_channels, num_classes, 1)
 
     def forward(self, x):
-        p = self.conv(x)
-        p = self.conv1(x * p) + p
+        p = self.conv1(x)
         return p
 
 
@@ -131,7 +139,7 @@ class MyNet(nn.Module):
         in_channels,
         n_classes,
         depth=4,
-        encoder_channels=[32, 64, 128, 256, 320],
+        encoder_channels=[64, 64, 128, 256, 320],
         conv=DefineConv,
         deep_supervision=False,
     ):
@@ -165,15 +173,12 @@ class MyNet(nn.Module):
                     high_channels=encoder_channels[self.depth - i - 1],
                     out_channels=encoder_channels[self.depth - i - 1],
                     conv=conv,
-                    num_conv=0,
-                    fusion_mode="cat",
+                    num_conv=1,
+                    fusion_mode="add",
                 )
             )
         self.out = nn.ModuleList(
-            [
-                nn.Conv3d(encoder_channels[depth - i - 1], n_classes, 1)
-                for i in range(depth)
-            ]
+            [Out(encoder_channels[depth - i - 1], n_classes) for i in range(depth)]
         )
 
     def forward(self, x):
@@ -196,6 +201,5 @@ class MyNet(nn.Module):
             return [self.out[-1](decoder_features[-1])]
 
 
-if __name__ == "__main__":
-    model = MyNet(1, 2, deep_supervision=True).cuda(4)
-    summary(model, input_size=(2, 1, 128, 128, 128))
+model = MyNet(1, 1, deep_supervision=True)
+summary(model, input_size=(2, 1, 128, 128, 128))

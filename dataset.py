@@ -42,6 +42,8 @@ class Dataset(torch.utils.data.Dataset):
             image, label = self.rotate90(image, label)
             image, label = self.flip(image, label)
             image = self.add_gaussian_noise(image)
+            image = self.bright_adjust(image)
+            image = self.contrast_adjust(image)
         patch_size = self.opt.image_size
         x = random.randint(0, label.shape[0] - patch_size[0])
         y = random.randint(0, label.shape[1] - patch_size[1])
@@ -88,7 +90,7 @@ class Dataset(torch.utils.data.Dataset):
 
     def bright_adjust(self, image, p=0.5):
         if np.random.rand() < p:
-            image = image + np.random.uniform(-0.5, 0.5)
+            image = image + np.random.uniform(-0.3, 0.3)
         return image
 
     def contrast_adjust(self, image, p=0.5):

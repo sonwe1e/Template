@@ -34,7 +34,7 @@ class LightningModule(pl.LightningModule):
             self.optimizer,
             max_lr=self.learning_rate,
             epochs=self.opt.epochs,
-            pct_start=0.06,
+            pct_start=0.15,
             steps_per_epoch=self.len_trainloader,
         )
 
