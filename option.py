@@ -5,7 +5,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--save_wandb", type=bool, default=True)
-    parser.add_argument("--project", type=str, default="BrainVessel")
+    parser.add_argument("--project", type=str, default="AortaSegmentation")
 
     # models
 
@@ -13,7 +13,9 @@ def parse_args():
 
     # dataset
     parser.add_argument(
-        "--dataset_root", type=str, default="./Data/Dataset012_BrainVessel"
+        "--dataset_root",
+        type=str,
+        default="/data1/songwei/WorkStation/Data/raw",  # "./Data/Dataset012_BrainVessel"
     )
     parser.add_argument("--image_size", type=tuple, default=(128, 128, 128))
 
@@ -27,10 +29,11 @@ def parse_args():
     parser.add_argument("--deep_supervision", type=bool, default=True)
     parser.add_argument("--alpha", type=float, default=0.5)
     parser.add_argument("--strong_aug", type=bool, default=True)
+    parser.add_argument("--enable_global", type=bool, default=False)
 
     # experiment
     parser.add_argument("--devices", type=int, default=0)
-    parser.add_argument("--exp_name", type=str, default="baselinev7")
+    parser.add_argument("--exp_name", type=str, default="baselinev8")
     parser.add_argument("--val_check", type=float, default=1.0)
     parser.add_argument("--log_step", type=int, default=10)
     parser.add_argument("--gradient_clip_val", type=int, default=1)

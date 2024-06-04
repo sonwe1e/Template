@@ -6,13 +6,13 @@ import os
 import scipy.spatial
 import pandas as pd
 from tqdm import tqdm
+from dataset import resize_image
 
-
-ckpt_path = "/data1/songwei/Segment/checkpoints/baselinev8-1x3x3/epoch=929-valid_loss=0.6248.ckpt"
+ckpt_path = "/data1/songwei/Segment/checkpoints/baselinev8-1x2c1x3+global/epoch=931-valid_loss=0.6247.ckpt"
 prediction_path = "/data1/songwei/Segment/predictions/test/"
 roi_size = (128, 128, 128)
 overlap = (int(128 * 0.5), int(128 * 0.5), int(128 * 0.5))
-device = torch.device("cuda:7")
+device = torch.device("cuda:2")
 gaussian_infer = True
 flip_tta = False
 paths = [prediction_path]
@@ -23,7 +23,8 @@ for k in list(ckpt["state_dict"].keys()):
     if k.startswith("model."):
         ckpt["state_dict"][k[6:]] = ckpt["state_dict"].pop(k)
 
-from models.unet import MyNet
+# from models.unet import MyNet
+from models.global_local_unet import MyNet
 
 model = MyNet(1, 1)
 model.load_state_dict(ckpt["state_dict"])
@@ -47,6 +48,11 @@ def slide_window_inference(image, model, roi_size, overlap, device=device):
 
     # 获取图像维度
     _, _, D, H, W = image.shape
+    global_image = image.cpu().numpy()[0, 0]
+    global_image = resize_image(global_image, new_shape=(128, 128, 128))
+    global_image = (
+        torch.from_numpy(global_image).float().unsqueeze(0).unsqueeze(0).to(device)
+    )
 
     # 计算滑动步长
     stride_d = roi_size[0] - overlap[0]
@@ -81,8 +87,9 @@ def slide_window_inference(image, model, roi_size, overlap, device=device):
 
                 # 将滑动窗口送入模型进行推理
                 with torch.no_grad():
+
                     patch = patch.to(device)
-                    output_patch = model(patch)[0]
+                    output_patch = model(patch, global_image)[0]
                     if flip_tta:
                         patch_flipx = model(torch.flip(patch, [4]))[0]
                         patch_flipy = model(torch.flip(patch, [3]))[0]

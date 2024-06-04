@@ -1,10 +1,11 @@
 import torch
 import torch.nn as nn
 from torchinfo import summary
+import torch.nn.functional as F
 
 
 class DefineConv(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size=[1, 1, 3], expand_rate=1):
+    def __init__(self, in_channels, out_channels, kernel_size=[1, 1, 3], expand_rate=2):
         super().__init__()
         expand_rate = expand_rate
         self.conv_list = nn.ModuleList()
@@ -17,7 +18,6 @@ class DefineConv(nn.Module):
                             out_channels * expand_rate,
                             kernel,
                             padding=kernel // 2,
-                            groups=1,
                         ),
                         nn.InstanceNorm3d(out_channels * expand_rate, affine=False),
                     )
@@ -30,7 +30,7 @@ class DefineConv(nn.Module):
                             out_channels,
                             kernel,
                             padding=kernel // 2,
-                            groups=1,
+                            # groups=8,
                         ),
                         nn.InstanceNorm3d(out_channels, affine=False),
                     )
@@ -43,6 +43,7 @@ class DefineConv(nn.Module):
                             out_channels * expand_rate,
                             kernel,
                             padding=kernel // 2,
+                            # groups=8,
                         ),
                         nn.InstanceNorm3d(out_channels * expand_rate, affine=False),
                     )
@@ -150,18 +151,30 @@ class MyNet(nn.Module):
         self.deep_supervision = deep_supervision
         assert len(encoder_channels) == depth + 1, "len(encoder_channels) != depth + 1"
 
-        self.conv = DefineConv(in_channels, encoder_channels[0])
-        self.encoders = nn.ModuleList()  # 使用 ModuleList 存储编码器层
+        self.local_encoders = nn.ModuleList()  # 使用 ModuleList 存储编码器层
+        self.local_encoders.append(DefineConv(in_channels, encoder_channels[0]))
+        self.global_encoders = nn.ModuleList()  # 使用 ModuleList 存储编码器层
+        self.global_encoders.append(DefineConv(in_channels, encoder_channels[0]))
         self.decoders = nn.ModuleList()  # 使用 ModuleList 存储解码器层
 
         # 创建编码器层
         for i in range(self.depth):
-            self.encoders.append(
+            self.local_encoders.append(
                 Down(
                     in_channels=encoder_channels[i],
                     out_channels=encoder_channels[i + 1],
                     conv=conv,
                     num_conv=2,
+                )
+            )
+
+        for i in range(self.depth):
+            self.global_encoders.append(
+                Down(
+                    in_channels=encoder_channels[i],
+                    out_channels=encoder_channels[i + 1],
+                    conv=conv,
+                    num_conv=1,
                 )
             )
 
@@ -181,12 +194,15 @@ class MyNet(nn.Module):
             [Out(encoder_channels[depth - i - 1], n_classes) for i in range(depth)]
         )
 
-    def forward(self, x):
-        encoder_features = [self.conv(x)]  # 存储编码器输出
-
+    def forward(self, local_patch, global_img):
         # 编码过程
-        for encoder in self.encoders:
-            encoder_features.append(encoder(encoder_features[-1]))
+        encoder_features = []
+        for _, (local_encoder, global_encoder) in enumerate(
+            zip(self.local_encoders, self.global_encoders)
+        ):
+            local_patch = local_encoder(local_patch)
+            global_img = global_encoder(global_img)
+            encoder_features.append(local_patch + global_img)
 
         # 解码过程
         x_dec = encoder_features[-1]
@@ -201,5 +217,6 @@ class MyNet(nn.Module):
             return [self.out[-1](decoder_features[-1])]
 
 
-model = MyNet(1, 1, deep_supervision=True)
-summary(model, input_size=(2, 1, 128, 128, 128))
+model = MyNet(1, 1, deep_supervision=False)
+x = torch.randn(2, 1, 128, 128, 128)
+# print(model(x, x)[0].shape)

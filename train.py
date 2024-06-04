@@ -16,6 +16,8 @@ if __name__ == "__main__":
     """定义网络"""
     from models.unet import MyNet
 
+    # from models.global_local_unet import MyNet
+
     model = MyNet(1, 1, deep_supervision=opt.deep_supervision)
     """模型编译"""
     # model = torch.compile(model)

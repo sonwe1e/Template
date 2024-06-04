@@ -1,5 +1,6 @@
 import os
 import glob
+from sympy import im
 import torch
 import numpy as np
 import SimpleITK as sitk
@@ -7,6 +8,8 @@ from concurrent.futures import ThreadPoolExecutor
 from option import get_option
 from scipy.ndimage import affine_transform
 import random
+from skimage.transform import resize
+from tqdm import tqdm
 
 opt = get_option()
 
@@ -16,28 +19,66 @@ class Dataset(torch.utils.data.Dataset):
         self.opt = opt
         self.dataset_root = opt.dataset_root
         self.phase = phase
-        self.image_list = [
-            i
-            for i in glob.glob(
-                os.path.join(self.dataset_root, phase, "image", "*.nii.gz")
-            )
-        ]
+        self.image_list = glob.glob(
+            os.path.join(self.dataset_root, "imagesTr", "*.mha")
+        )
+        random.shuffle(self.image_list)
         self.label_list = [
-            i
-            for i in glob.glob(os.path.join(self.dataset_root, phase, "gt", "*.nii.gz"))
+            i.replace("imagesTr", "labelsTr").replace("_0000", "")
+            for i in self.image_list
         ]
-        self.image_list = sorted(self.image_list)
-        self.label_list = sorted(self.label_list)
+
+        # Split dataset for training and validation
+        split_idx = int(len(self.image_list) * 0.8)
+        if phase == "train":
+            self.image_list = self.image_list[:split_idx]
+            self.label_list = self.label_list[:split_idx]
+        else:
+            self.image_list = self.image_list[split_idx:]
+            self.label_list = self.label_list[split_idx:]
+
         self.foreground_sampling_prob = opt.foreground_sampling_prob
 
+        # Load data with multithreading and display progress with tqdm
+        with ThreadPoolExecutor(max_workers=opt.num_workers * 3) as executor:
+            futures_images = {
+                executor.submit(self.load_image, img): img for img in self.image_list
+            }
+            futures_labels = {
+                executor.submit(self.load_image, lbl, np.int8): lbl
+                for lbl in self.label_list
+            }
+
+            self.image_list = [
+                future.result()
+                for future in tqdm(
+                    futures_images, total=len(self.image_list), desc="Loading Images"
+                )
+            ]
+            self.label_list = [
+                future.result()
+                for future in tqdm(
+                    futures_labels, total=len(self.label_list), desc="Loading Labels"
+                )
+            ]
+
+    def load_image(self, file_path, dtype=np.float32):
+        """Helper function to load and process images."""
+        image = sitk.ReadImage(file_path)
+        array = sitk.GetArrayFromImage(image).astype(dtype)
+        return array
+
     def __getitem__(self, index):
-        image_path = self.image_list[index]
-        label_path = self.label_list[index]
-        image = sitk.GetArrayFromImage(sitk.ReadImage(image_path)).astype(np.float32)
-        label = sitk.GetArrayFromImage(sitk.ReadImage(label_path)).astype(np.int32)
-        image = np.clip(image, 0, np.percentile(image, 99.9))
+        image = self.image_list[index]
+        label = self.label_list[index]
+        label = np.clip(label, 0, 1)
+        # CT image preprocessing
+        image = np.clip(image, -1000, 500)
+        # MRA image preprocessing
+        # image = np.clip(image, 0.0, np.percentile(image, 99.9))
         image = (image - np.min(image)) / (np.max(image) - np.min(image))
         image = 2 * (image - 0.5)
+        global_image = image.copy()
         if self.phase == "train" and self.opt.strong_aug:
             image, label = self.rotate90(image, label)
             image, label = self.flip(image, label)
@@ -56,6 +97,10 @@ class Dataset(torch.utils.data.Dataset):
         ]
         image = torch.from_numpy(image.copy()).float().unsqueeze(0)
         label = torch.from_numpy(label.copy()).float().unsqueeze(0)
+        if opt.enable_global:
+            global_image = resize_image(global_image, new_shape=(128, 128, 128))
+            global_image = torch.from_numpy(global_image).float().unsqueeze(0)
+            return image, label, global_image
         return image, label
 
     def __len__(self):
@@ -133,6 +178,82 @@ class Dataset(torch.utils.data.Dataset):
         )
 
         return transformed_image, transformed_label
+
+
+def resize_image(image, old_spacing=None, new_spacing=None, new_shape=None, order=1):
+    assert new_shape is not None or (
+        old_spacing is not None and new_spacing is not None
+    )
+    if new_shape is None:
+        new_shape = tuple(
+            [
+                int(np.round(old_spacing[i] / new_spacing[i] * float(image.shape[i])))
+                for i in range(3)
+            ]
+        )
+    resized_image = resize(
+        image, new_shape, order=order, mode="edge", cval=0, anti_aliasing=False
+    )
+    return resized_image
+
+
+def resize_segmentation(
+    segmentation, old_spacing=None, new_spacing=None, new_shape=None, order=0, cval=0
+):
+    """
+    Taken from batchgenerators (https://github.com/MIC-DKFZ/batchgenerators) to prevent dependency
+
+
+    Resizes a segmentation map. Supports all orders (see skimage documentation). Will transform segmentation map to one
+    hot encoding which is resized and transformed back to a segmentation map.
+    This prevents interpolation artifacts ([0, 0, 2] -> [0, 1, 2])
+    :param segmentation:
+    :param new_shape:
+    :param order:
+    :return:
+    """
+    assert new_shape is not None or (
+        old_spacing is not None and new_spacing is not None
+    )
+    if new_shape is None:
+        new_shape = tuple(
+            [
+                int(
+                    np.round(
+                        old_spacing[i] / new_spacing[i] * float(segmentation.shape[i])
+                    )
+                )
+                for i in range(3)
+            ]
+        )
+    tpe = segmentation.dtype
+    assert len(segmentation.shape) == len(
+        new_shape
+    ), "new shape must have same dimensionality as segmentation"
+    if order == 0:
+        return resize(
+            segmentation,
+            new_shape,
+            order,
+            mode="constant",
+            cval=cval,
+            clip=True,
+            anti_aliasing=False,
+        ).astype(tpe)
+    else:
+        unique_labels = np.unique(segmentation)
+        reshaped = np.zeros(new_shape, dtype=segmentation.dtype)
+        for i, c in enumerate(unique_labels):
+            reshaped_multihot = resize(
+                (segmentation == c).astype(float),
+                new_shape,
+                order,
+                mode="edge",
+                clip=True,
+                anti_aliasing=False,
+            )
+            reshaped[reshaped_multihot >= 0.5] = c
+        return reshaped
 
 
 def get_dataloader(opt):
