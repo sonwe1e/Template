@@ -4,7 +4,7 @@ from torchinfo import summary
 
 
 class DefineConv(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size=[1, 1, 3], expand_rate=1):
+    def __init__(self, in_channels, out_channels, kernel_size=[1, 1, 3], expand_rate=2):
         super().__init__()
         expand_rate = expand_rate
         self.conv_list = nn.ModuleList()
@@ -19,7 +19,7 @@ class DefineConv(nn.Module):
                             padding=kernel // 2,
                             groups=1,
                         ),
-                        nn.InstanceNorm3d(out_channels * expand_rate, affine=False),
+                        nn.InstanceNorm3d(out_channels * expand_rate, affine=True),
                     )
                 )
             elif _ == len(kernel_size) - 1:
@@ -32,7 +32,7 @@ class DefineConv(nn.Module):
                             padding=kernel // 2,
                             groups=1,
                         ),
-                        nn.InstanceNorm3d(out_channels, affine=False),
+                        nn.InstanceNorm3d(out_channels, affine=True),
                     )
                 )
             else:
@@ -44,7 +44,7 @@ class DefineConv(nn.Module):
                             kernel,
                             padding=kernel // 2,
                         ),
-                        nn.InstanceNorm3d(out_channels * expand_rate, affine=False),
+                        nn.InstanceNorm3d(out_channels * expand_rate, affine=True),
                     )
                 )
         self.residual = in_channels == out_channels
@@ -66,7 +66,7 @@ class DefineConv(nn.Module):
 
 class Down(nn.Module):
     def __init__(
-        self, in_channels, out_channels, num_conv=2, conv=DefineConv, stride=2
+        self, in_channels, out_channels, num_conv=1, conv=DefineConv, stride=2
     ):
         super().__init__()
         assert num_conv >= 1, "num_conv must be greater than or equal to 1"
@@ -141,10 +141,10 @@ class MyNet(nn.Module):
         in_channels,
         n_classes,
         depth=4,
-        encoder_channels=[64, 64, 128, 256, 320],
+        encoder_channels=[32, 64, 128, 256, 320],
         conv=DefineConv,
         deep_supervision=False,
-        strides=[(2, 2, 2), (2, 2, 2), (2, 2, 2), (1, 2, 2), (1, 2, 2)],
+        strides=[(2, 2, 2), (2, 2, 2), (2, 2, 2), (2, 2, 2), (2, 2, 2)],
     ):
         super().__init__()
         self.in_channels = in_channels
