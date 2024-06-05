@@ -8,11 +8,13 @@ import pandas as pd
 from tqdm import tqdm
 from dataset import resize_image
 
-ckpt_path = "/data1/songwei/Segment/checkpoints/baselinev8-1x2c1x3+global/epoch=931-valid_loss=0.6247.ckpt"
+ckpt_path = (
+    "/data1/songwei/Segment/checkpoints/baselinev8/epoch=115-valid_loss=0.5323.ckpt"
+)
 prediction_path = "/data1/songwei/Segment/predictions/test/"
 roi_size = (128, 128, 128)
 overlap = (int(128 * 0.5), int(128 * 0.5), int(128 * 0.5))
-device = torch.device("cuda:2")
+device = torch.device("cuda:3")
 gaussian_infer = True
 flip_tta = False
 paths = [prediction_path]
@@ -23,8 +25,9 @@ for k in list(ckpt["state_dict"].keys()):
     if k.startswith("model."):
         ckpt["state_dict"][k[6:]] = ckpt["state_dict"].pop(k)
 
-# from models.unet import MyNet
-from models.global_local_unet import MyNet
+from models.unet import MyNet
+
+# from models.global_local_unet import MyNet
 
 model = MyNet(1, 1)
 model.load_state_dict(ckpt["state_dict"])
@@ -89,7 +92,7 @@ def slide_window_inference(image, model, roi_size, overlap, device=device):
                 with torch.no_grad():
 
                     patch = patch.to(device)
-                    output_patch = model(patch, global_image)[0]
+                    output_patch = model(patch)[0]
                     if flip_tta:
                         patch_flipx = model(torch.flip(patch, [4]))[0]
                         patch_flipy = model(torch.flip(patch, [3]))[0]
@@ -239,17 +242,18 @@ def predict_from_path(
     model,
     roi_size,
     overlap,
-    images_path="/data1/songwei/Segment/Data/Dataset012_BrainVessel/test/image/*",
+    images_path="/data1/songwei/WorkStation/Data/raw/Dataset011_AortaSeg/fold1/*",
 ):
     image_list = glob.glob(images_path)
     for image_path in tqdm(image_list):
         image_meta = sitk.ReadImage(image_path)
         image = sitk.GetArrayFromImage(image_meta).astype(np.float32)
 
-        image = np.clip(image, 0, np.percentile(image, 99.9))
+        # image = np.clip(image, 0, np.percentile(image, 99.9))
+        # image = (image - np.min(image)) / (np.max(image) - np.min(image))
+        # image = 2 * (image - 0.5)
+        image = np.clip(image, -1000, 500)
         image = (image - np.mean(image)) / np.std(image)
-        image = (image - np.min(image)) / (np.max(image) - np.min(image))
-        image = 2 * (image - 0.5)
         image = torch.from_numpy(image.copy()).float().unsqueeze(0).unsqueeze(0)
         # 进行滑动窗口推理
         output_image = slide_window_inference(image, model, roi_size, overlap)
@@ -268,7 +272,7 @@ def predict_from_path(
 
 
 predict_from_path(model, roi_size, overlap)
-label_path = "/data1/songwei/Segment/Data/Dataset012_BrainVessel/test/gt"
+label_path = "/data1/songwei/WorkStation/Data/raw/Dataset011_AortaSeg/labelsTr"
 
 
 results = []

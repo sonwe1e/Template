@@ -1,12 +1,10 @@
 import os
 import glob
-from sympy import im
 import torch
 import numpy as np
 import SimpleITK as sitk
 from concurrent.futures import ThreadPoolExecutor
 from option import get_option
-from scipy.ndimage import affine_transform
 import random
 from skimage.transform import resize
 from tqdm import tqdm
@@ -69,6 +67,8 @@ class Dataset(torch.utils.data.Dataset):
         return array
 
     def __getitem__(self, index):
+        if self.phase == "train":
+            index = random.randint(0, len(self.image_list) - 1)
         image = self.image_list[index]
         label = self.label_list[index]
         label = np.clip(label, 0, 1)
@@ -76,25 +76,57 @@ class Dataset(torch.utils.data.Dataset):
         image = np.clip(image, -1000, 500)
         # MRA image preprocessing
         # image = np.clip(image, 0.0, np.percentile(image, 99.9))
-        image = (image - np.min(image)) / (np.max(image) - np.min(image))
-        image = 2 * (image - 0.5)
+        # Normalize image to [-1, 1]
+        # image = (image - np.min(image)) / (np.max(image) - np.min(image))
+        # image = 2 * (image - 0.5)
+        # Standardize image to zero mean and unit variance
+        image = (image - np.mean(image)) / np.std(image)
         global_image = image.copy()
-        if self.phase == "train" and self.opt.strong_aug:
-            image, label = self.rotate90(image, label)
-            image, label = self.flip(image, label)
-            image = self.add_gaussian_noise(image)
-            image = self.bright_adjust(image)
-            image = self.contrast_adjust(image)
-        patch_size = self.opt.image_size
-        x = random.randint(0, label.shape[0] - patch_size[0])
-        y = random.randint(0, label.shape[1] - patch_size[1])
-        z = random.randint(0, label.shape[2] - patch_size[2])
-        image = image[
-            x : x + patch_size[0], y : y + patch_size[1], z : z + patch_size[2]
-        ]
-        label = label[
-            x : x + patch_size[0], y : y + patch_size[1], z : z + patch_size[2]
-        ]
+        if self.phase == "train":
+            if self.opt.strong_aug:
+                image, label = self.rotate90(image, label)
+                image, label = self.flip(image, label)
+                image = self.add_gaussian_noise(image)
+                image = self.bright_adjust(image)
+                image = self.contrast_adjust(image)
+
+            patch_size = self.opt.image_size
+            image, label = pad_to_patch_size(image, label, patch_size)
+            x = random.randint(0, label.shape[0] - patch_size[0])
+            y = random.randint(0, label.shape[1] - patch_size[1])
+            z = random.randint(0, label.shape[2] - patch_size[2])
+            image = image[
+                x : x + patch_size[0], y : y + patch_size[1], z : z + patch_size[2]
+            ]
+            label = label[
+                x : x + patch_size[0], y : y + patch_size[1], z : z + patch_size[2]
+            ]
+        else:
+            image_size = self.opt.image_size
+            crop_size = [size * 1 for size in image_size]
+            image, label = pad_to_patch_size(image, label, crop_size)
+            image = image[
+                (image.shape[0] - crop_size[0])
+                // 2 : (image.shape[0] + crop_size[0])
+                // 2,
+                (image.shape[1] - crop_size[1])
+                // 2 : (image.shape[1] + crop_size[1])
+                // 2,
+                (image.shape[2] - crop_size[2])
+                // 2 : (image.shape[2] + crop_size[2])
+                // 2,
+            ]
+            label = label[
+                (label.shape[0] - crop_size[0])
+                // 2 : (label.shape[0] + crop_size[0])
+                // 2,
+                (label.shape[1] - crop_size[1])
+                // 2 : (label.shape[1] + crop_size[1])
+                // 2,
+                (label.shape[2] - crop_size[2])
+                // 2 : (label.shape[2] + crop_size[2])
+                // 2,
+            ]
         image = torch.from_numpy(image.copy()).float().unsqueeze(0)
         label = torch.from_numpy(label.copy()).float().unsqueeze(0)
         if opt.enable_global:
@@ -104,7 +136,11 @@ class Dataset(torch.utils.data.Dataset):
         return image, label
 
     def __len__(self):
-        return len(self.image_list)
+        return (
+            len(self.image_list) * self.opt.iteration_rate
+            if self.phase == "train"
+            else len(self.image_list)
+        )
 
     def rotate90(self, image, label, p=0.5):
         if np.random.rand() < p:
@@ -129,55 +165,31 @@ class Dataset(torch.utils.data.Dataset):
 
     def add_gaussian_noise(self, image, p=0.5):
         if np.random.rand() < p:
-            noise = np.random.normal(0, 0.3, image.shape)
+            noise = np.random.normal(0, 0.1, image.shape)
             image += noise
         return image
 
     def bright_adjust(self, image, p=0.5):
         if np.random.rand() < p:
-            image = image + np.random.uniform(-0.3, 0.3)
+            image = image + np.random.uniform(-0.2, 0.2)
         return image
 
     def contrast_adjust(self, image, p=0.5):
         if np.random.rand() < p:
-            image = image * np.random.uniform(0.7, 1.3)
+            image = image * np.random.uniform(0.8, 1.2)
         return image
 
-    def random_affine_transform(
-        self,
-        image,
-        label,
-        scale_range=(0.8, 1.2),
-        rotation_range=(-10, 10),
-        translation_range=(-5, 5),
-    ):
-        # Generate random scaling factors
-        scale = np.random.uniform(scale_range[0], scale_range[1], 3)
 
-        # Generate random rotation angles in degrees
-        rotation = np.radians(
-            np.random.uniform(rotation_range[0], rotation_range[1], 3)
-        )
+def pad_to_patch_size(image, label, patch_size):
+    padding = []
+    for i in range(3):
+        pad_before = max(0, (patch_size[i] - image.shape[i]) // 2)
+        pad_after = max(0, (patch_size[i] - image.shape[i] + 1) // 2)
+        padding.append((pad_before, pad_after))
 
-        # Generate random translations
-        translation = np.random.uniform(translation_range[0], translation_range[1], 3)
-        scale_matrix = np.diag(scale)
-        cos = np.cos(rotation)
-        sin = np.sin(rotation)
-        rotation_x = np.array([[1, 0, 0], [0, cos[0], -sin[0]], [0, sin[0], cos[0]]])
-        rotation_y = np.array([[cos[1], 0, sin[1]], [0, 1, 0], [-sin[1], 0, cos[1]]])
-        rotation_z = np.array([[cos[2], -sin[2], 0], [sin[2], cos[2], 0], [0, 0, 1]])
-
-        # Combine transformations
-        transformation_matrix = rotation_z @ rotation_y @ rotation_x @ scale_matrix
-        transformed_image = affine_transform(
-            image, transformation_matrix, offset=translation, order=1, mode="nearest"
-        )
-        transformed_label = affine_transform(
-            label, transformation_matrix, offset=translation, order=1, mode="nearest"
-        )
-
-        return transformed_image, transformed_label
+    image = np.pad(image, padding, mode="constant", constant_values=0)
+    label = np.pad(label, padding, mode="constant", constant_values=0)
+    return image, label
 
 
 def resize_image(image, old_spacing=None, new_spacing=None, new_shape=None, order=1):

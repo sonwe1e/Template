@@ -65,10 +65,12 @@ class DefineConv(nn.Module):
 
 
 class Down(nn.Module):
-    def __init__(self, in_channels, out_channels, num_conv=2, conv=DefineConv):
+    def __init__(
+        self, in_channels, out_channels, num_conv=2, conv=DefineConv, stride=2
+    ):
         super().__init__()
         assert num_conv >= 1, "num_conv must be greater than or equal to 1"
-        self.downsample = nn.AvgPool3d(2)
+        self.downsample = nn.AvgPool3d(stride)
         self.extractor = nn.ModuleList(
             [
                 (
@@ -88,7 +90,6 @@ class Down(nn.Module):
 
 
 class Up(nn.Module):
-
     def __init__(
         self,
         low_channels,
@@ -97,11 +98,12 @@ class Up(nn.Module):
         num_conv=1,
         conv=DefineConv,
         fusion_mode="cat",
+        stride=2,
     ):
         super().__init__()
 
         self.fusion_mode = fusion_mode
-        self.up = nn.ConvTranspose3d(low_channels, high_channels, 2, 2)
+        self.up = nn.ConvTranspose3d(low_channels, high_channels, stride, stride)
         self.upsample = (
             conv(2 * high_channels, out_channels)
             if fusion_mode == "cat"
@@ -142,6 +144,7 @@ class MyNet(nn.Module):
         encoder_channels=[64, 64, 128, 256, 320],
         conv=DefineConv,
         deep_supervision=False,
+        strides=[(2, 2, 2), (2, 2, 2), (2, 2, 2), (1, 2, 2), (1, 2, 2)],
     ):
         super().__init__()
         self.in_channels = in_channels
@@ -149,9 +152,10 @@ class MyNet(nn.Module):
         self.depth = depth
         self.deep_supervision = deep_supervision
         assert len(encoder_channels) == depth + 1, "len(encoder_channels) != depth + 1"
+        assert len(strides) == depth + 1, "len(strides) != depth"
 
-        self.conv = DefineConv(in_channels, encoder_channels[0])
         self.encoders = nn.ModuleList()  # 使用 ModuleList 存储编码器层
+        self.encoders.append(DefineConv(in_channels, encoder_channels[0]))
         self.decoders = nn.ModuleList()  # 使用 ModuleList 存储解码器层
 
         # 创建编码器层
@@ -161,7 +165,8 @@ class MyNet(nn.Module):
                     in_channels=encoder_channels[i],
                     out_channels=encoder_channels[i + 1],
                     conv=conv,
-                    num_conv=2,
+                    num_conv=1,
+                    stride=strides[i],
                 )
             )
 
@@ -174,6 +179,7 @@ class MyNet(nn.Module):
                     out_channels=encoder_channels[self.depth - i - 1],
                     conv=conv,
                     num_conv=1,
+                    stride=strides[self.depth - i - 1],
                     fusion_mode="add",
                 )
             )
@@ -182,15 +188,16 @@ class MyNet(nn.Module):
         )
 
     def forward(self, x):
-        encoder_features = [self.conv(x)]  # 存储编码器输出
+        encoder_features = []  # 存储编码器输出
+        decoder_features = []  # 用于存储解码器特征
 
         # 编码过程
         for encoder in self.encoders:
-            encoder_features.append(encoder(encoder_features[-1]))
+            x = encoder(x)
+            encoder_features.append(x)
 
         # 解码过程
         x_dec = encoder_features[-1]
-        decoder_features = []  # 用于存储解码器特征
         for i, decoder in enumerate(self.decoders):
             x_dec = decoder(x_dec, encoder_features[-(i + 2)])
             decoder_features.append(x_dec)  # 保存解码器特征

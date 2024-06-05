@@ -39,7 +39,7 @@ if __name__ == "__main__":
         devices=[opt.devices],
         strategy="auto",
         max_epochs=opt.epochs,
-        # precision="bf16-mixed",
+        precision="bf16-mixed" if opt.autocast else 32,
         default_root_dir="./",
         deterministic=False,
         logger=wandb_logger,

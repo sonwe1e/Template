@@ -4,7 +4,6 @@ import lightning.pytorch as pl
 import torch.nn.functional as F
 import numpy as np
 from utils import BinaryDiceLoss, FocalLoss
-from lion_pytorch import Lion
 
 torch.set_float32_matmul_precision("high")
 
@@ -17,6 +16,7 @@ class LightningModule(pl.LightningModule):
         self.opt = opt
         self.model = model
         self.criterion = torch.nn.BCEWithLogitsLoss()
+        # self.criterion = FocalLoss()
         self.dice_loss = BinaryDiceLoss()
 
     def forward(self, local_patch, global_img=None):
@@ -93,7 +93,7 @@ class LightningModule(pl.LightningModule):
         loss = ce_loss + dice_loss
         self.log("valid_ce_loss", ce_loss)
         self.log("valid_dice_loss", dice_loss)
-        self.log("valid_loss", loss)
+        self.log("valid_loss", loss, prog_bar=True)
 
     def on_train_epoch_end(self):
         pass
