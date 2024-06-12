@@ -14,7 +14,7 @@ class LightningModule(pl.LightningModule):
         self.len_trainloader = len_trainloader
         self.opt = opt
         self.model = model
-        self.criterion = torch.nn.CrossEntropyLoss()
+        self.criterion = torch.nn.CrossEntropyLoss(label_smoothing=0.1)
         self.train_predictions = []
         self.val_predictions = []
         self.train_labels = []
@@ -39,17 +39,24 @@ class LightningModule(pl.LightningModule):
         )
         return {
             "optimizer": self.optimizer,
-            # "lr_scheduler": {
-            #     "scheduler": self.scheduler,
-            #     "interval": "step",
-            # },
+            "lr_scheduler": {
+                "scheduler": self.scheduler,
+                "interval": "step",
+            },
         }
 
     def training_step(self, batch, batch_idx):
         image, label = batch['image'], batch['label']
         # self.log_image("input", batch["image"])
+        mixup_rate = np.random.random()
+        if mixup_rate < self.opt.mixup_cutmix_line:
+            image, label_a, label_b, lam = self.mixup(image, label, alpha=1.0)
+        else:
+            image, label_a, label_b, lam = self.cutmix(image, label, alpha=1.0)
         prediction = self(image)
-        ce_loss = self.criterion(prediction, label)
+        ce_loss = self.criterion(prediction, label_a) * lam + self.criterion(
+            prediction, label_b
+        ) * (1 - lam)
         prediction = torch.argmax(prediction, dim=1)
         self.train_predictions.append(prediction)
         self.train_labels.append(label)
@@ -129,7 +136,7 @@ class LightningModule(pl.LightningModule):
         index = torch.randperm(batch_size)
         mixed_x = lam * x + (1 - lam) * x[index, :]
         y_a, y_b = y, y[index]
-        return mixed_x, y_a, y_b
+        return mixed_x, y_a, y_b, lam
     
     def cutmix(self, x, y, alpha=1.0):
         if alpha > 0:
@@ -151,8 +158,8 @@ class LightningModule(pl.LightningModule):
         W = size[2]
         H = size[3]
         cut_rat = np.sqrt(1. - lam)
-        cut_w = np.int(W * cut_rat)
-        cut_h = np.int(H * cut_rat)
+        cut_w = (W * cut_rat).astype(np.uint16)
+        cut_h = (H * cut_rat).astype(np.uint16)
 
         cx = np.random.randint(W)
         cy = np.random.randint(H)

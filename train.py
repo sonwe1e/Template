@@ -14,8 +14,8 @@ torch.set_float32_matmul_precision("high")
 if __name__ == "__main__":
     opt = get_option()
     """定义网络"""
-    model = torchvision.models.resnet18(pretrained=False)
-    model.fc = torch.nn.Linear(512, 200)
+    model = torchvision.models.resnet50(pretrained=False)
+    model.fc = torch.nn.Linear(2048, 200)
 
     """模型编译"""
     # model = torch.compile(model)
