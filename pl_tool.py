@@ -2,7 +2,13 @@ import torch
 import lightning.pytorch as pl
 import torch.nn.functional as F
 import numpy as np
-from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score, f1_score
+from sklearn.metrics import (
+    confusion_matrix,
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score,
+)
 
 torch.set_float32_matmul_precision("high")
 
@@ -14,7 +20,8 @@ class LightningModule(pl.LightningModule):
         self.len_trainloader = len_trainloader
         self.opt = opt
         self.model = model
-        self.criterion = torch.nn.CrossEntropyLoss(label_smoothing=0.1)
+        self.ce_loss = torch.nn.CrossEntropyLoss(label_smoothing=0.1)
+        self.mse_loss = torch.nn.L1Loss()
         self.train_predictions = []
         self.val_predictions = []
         self.train_labels = []
@@ -46,15 +53,19 @@ class LightningModule(pl.LightningModule):
         }
 
     def training_step(self, batch, batch_idx):
-        image, label = batch['image'], batch['label']
+        image, label = batch["image"], batch["label"]
         # self.log_image("input", batch["image"])
-        mixup_rate = np.random.random()
-        if mixup_rate < self.opt.mixup_cutmix_line:
-            image, label_a, label_b, lam = self.mixup(image, label, alpha=1.0)
+        mix_rate = np.random.random()
+        if mix_rate < self.opt.mixup_cutmix_line:
+            image, label_a, label_b, lam = self.mixup(
+                image, label, alpha=self.opt.mix_alpha
+            )
         else:
-            image, label_a, label_b, lam = self.cutmix(image, label, alpha=1.0)
+            image, label_a, label_b, lam = self.cutmix(
+                image, label, alpha=self.opt.mix_alpha
+            )
         prediction = self(image)
-        ce_loss = self.criterion(prediction, label_a) * lam + self.criterion(
+        ce_loss = self.ce_loss(prediction, label_a) * lam + self.ce_loss(
             prediction, label_b
         ) * (1 - lam)
         prediction = torch.argmax(prediction, dim=1)
@@ -62,22 +73,21 @@ class LightningModule(pl.LightningModule):
         self.train_labels.append(label)
         loss = ce_loss
         self.log("train_ce_loss", ce_loss)
-        self.log('train_loss', loss)
+        self.log("train_loss", loss)
         self.log("learning_rate", self.scheduler.get_last_lr()[0])
         return loss
 
     def validation_step(self, batch, batch_idx):
-        image, label = batch['image'], batch['label']
+        image, label = batch["image"], batch["label"]
         # self.log_image("input", batch["image"])
         prediction = self(image)
-        ce_loss = self.criterion(prediction, label)
+        ce_loss = self.ce_loss(prediction, label)
         prediction = torch.argmax(prediction, dim=1)
         self.val_predictions.append(prediction)
         self.val_labels.append(label)
         loss = ce_loss
         self.log("valid_ce_loss", ce_loss)
         self.log("valid_loss", loss)
-        
 
     def on_train_epoch_end(self):
         self.train_predictions = torch.cat(self.train_predictions)
@@ -91,15 +101,17 @@ class LightningModule(pl.LightningModule):
         # 计算指标
         acc = accuracy_score(self.train_labels, self.train_predictions)
         # 计算宏平均
-        prec = precision_score(self.train_labels, self.train_predictions, average='macro')
-        sens = recall_score(self.train_labels, self.train_predictions, average='macro')
-        f1 = f1_score(self.train_labels, self.train_predictions, average='macro')
-        
+        prec = precision_score(
+            self.train_labels, self.train_predictions, average="macro"
+        )
+        sens = recall_score(self.train_labels, self.train_predictions, average="macro")
+        f1 = f1_score(self.train_labels, self.train_predictions, average="macro")
+
         self.log("train_acc", acc)
         self.log("train_precision", prec)
         self.log("train_recall", sens)
         self.log("train_f1", f1)
-        
+
         self.train_labels = []
         self.train_predictions = []
 
@@ -115,18 +127,18 @@ class LightningModule(pl.LightningModule):
         # 计算指标
         acc = accuracy_score(self.val_labels, self.val_predictions)
         # 计算宏平均
-        prec = precision_score(self.val_labels, self.val_predictions, average='macro')
-        sens = recall_score(self.val_labels, self.val_predictions, average='macro')
-        f1 = f1_score(self.val_labels, self.val_predictions, average='macro')
-        
+        prec = precision_score(self.val_labels, self.val_predictions, average="macro")
+        sens = recall_score(self.val_labels, self.val_predictions, average="macro")
+        f1 = f1_score(self.val_labels, self.val_predictions, average="macro")
+
         self.log("val_acc", acc)
         self.log("val_precision", prec)
         self.log("val_recall", sens)
-        self.log("val_f1", f1)  
+        self.log("val_f1", f1)
 
         self.val_labels = []
         self.val_predictions = []
-        
+
     def mixup(self, x, y, alpha=0.8):
         if alpha > 0:
             lam = np.random.beta(alpha, alpha)
@@ -137,7 +149,7 @@ class LightningModule(pl.LightningModule):
         mixed_x = lam * x + (1 - lam) * x[index, :]
         y_a, y_b = y, y[index]
         return mixed_x, y_a, y_b, lam
-    
+
     def cutmix(self, x, y, alpha=1.0):
         if alpha > 0:
             lam = np.random.beta(alpha, alpha)
@@ -157,7 +169,7 @@ class LightningModule(pl.LightningModule):
     def rand_bbox(self, size, lam):
         W = size[2]
         H = size[3]
-        cut_rat = np.sqrt(1. - lam)
+        cut_rat = np.sqrt(1.0 - lam)
         cut_w = (W * cut_rat).astype(np.uint16)
         cut_h = (H * cut_rat).astype(np.uint16)
 
