@@ -21,7 +21,6 @@ class LightningModule(pl.LightningModule):
         self.opt = opt
         self.model = model
         self.ce_loss = torch.nn.CrossEntropyLoss(label_smoothing=0.1)
-        self.mse_loss = torch.nn.L1Loss()
         self.train_predictions = []
         self.val_predictions = []
         self.train_labels = []

@@ -15,7 +15,9 @@ torch.set_float32_matmul_precision("high")
 if __name__ == "__main__":
     opt = get_option()
     """定义网络"""
-    model = timm.create_model("resnet18", pretrained=False, num_classes=200)
+    model = timm.create_model(
+        "resnet50", pretrained=False, num_classes=200, features_only=True
+    )
 
     """模型编译"""
     # model = torch.compile(model)

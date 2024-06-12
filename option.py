@@ -27,7 +27,7 @@ def parse_args():
     parser.add_argument(
         "--exp_name",
         type=str,
-        default="baselinev1-resnet18",
+        default="baselinev1-reconstruction",
     )
     parser.add_argument("--val_check", type=float, default=1.0)
     parser.add_argument("--log_step", type=int, default=10)
