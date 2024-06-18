@@ -6,7 +6,7 @@ import lightning.pytorch as pl
 from lightning.pytorch.loggers import WandbLogger
 import torch
 import wandb
-import torchvision
+import torchvision.models as tm
 import timm
 
 torch.set_float32_matmul_precision("high")

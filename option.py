@@ -16,19 +16,15 @@ def parse_args():
     parser.add_argument("--mix_alpha", type=float, default=1.0)
 
     # training setups
-    parser.add_argument("-wd", "--weight_decay", type=float, default=5e-2)
-    parser.add_argument("-lr", "--learning_rate", type=float, default=3e-4)
+    parser.add_argument("-wd", "--weight_decay", type=float, default=5e-3)
+    parser.add_argument("-lr", "--learning_rate", type=float, default=3e-3)
     parser.add_argument("-bs", "--batch_size", type=int, default=128)
     parser.add_argument("-e", "--epochs", type=int, default=80)
     parser.add_argument("--num_workers", type=int, default=8)
 
     # experiment
-    parser.add_argument("--devices", type=int, default=1)
-    parser.add_argument(
-        "--exp_name",
-        type=str,
-        default="baselinev1-reconstruction",
-    )
+    parser.add_argument("--devices", type=int, default=0)
+    parser.add_argument("--exp_name", type=str, default="baselinev1")
     parser.add_argument("--val_check", type=float, default=1.0)
     parser.add_argument("--log_step", type=int, default=10)
     parser.add_argument("--gradient_clip_val", type=int, default=1000)

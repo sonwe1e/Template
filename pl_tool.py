@@ -68,6 +68,7 @@ class LightningModule(pl.LightningModule):
             prediction, label_b
         ) * (1 - lam)
         prediction = torch.argmax(prediction, dim=1)
+        # prediction = torch.round(torch.sigmoid(prediction))
         self.train_predictions.append(prediction)
         self.train_labels.append(label)
         loss = ce_loss
@@ -82,6 +83,7 @@ class LightningModule(pl.LightningModule):
         prediction = self(image)
         ce_loss = self.ce_loss(prediction, label)
         prediction = torch.argmax(prediction, dim=1)
+        # prediction = torch.round(torch.sigmoid(prediction))
         self.val_predictions.append(prediction)
         self.val_labels.append(label)
         loss = ce_loss
