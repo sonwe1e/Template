@@ -6,7 +6,6 @@ import lightning.pytorch as pl
 from lightning.pytorch.loggers import WandbLogger
 import torch
 import wandb
-import torchvision.models as tm
 import timm
 
 torch.set_float32_matmul_precision("high")
@@ -16,8 +15,15 @@ if __name__ == "__main__":
     opt = get_option()
     """定义网络"""
     model = timm.create_model(
-        "resnet50", pretrained=False, num_classes=200, features_only=True
+        "vit_little_patch16_reg1_gap_256.sbb_in12k_ft_in1k",
+        pretrained=False,
+        num_classes=62,
+        features_only=False,
     )
+    ckpt = torch.load("./vit_little_patch16_reg1_gap_256.sbb_in12k_ft_in1k.bin")
+    ckpt.pop("head.weight")
+    ckpt.pop("head.bias")
+    model.load_state_dict(ckpt, strict=False)
 
     """模型编译"""
     # model = torch.compile(model)
