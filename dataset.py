@@ -58,6 +58,13 @@ class Dataset(torch.utils.data.Dataset):
         with open(os.path.join(opt.dataset_root, "label_mapping.json")) as f:
             self.label_mapping = json.load(f)
         self.image_list = glob.glob(os.path.join(self.data_path, "*/*.JPEG"))
+        for _, i in enumerate(self.image_list):
+            if phase == "train":
+                if (_ + opt.fold) % opt.num_fold == 0:
+                    self.image_list.remove(i)
+            elif phase == "valid":
+                if (_ + opt.fold) % opt.num_fold != 0:
+                    self.image_list.remove(i)
         self.transform = transform
 
     def __getitem__(self, index):

@@ -132,10 +132,10 @@ class LightningModule(pl.LightningModule):
         sens = recall_score(self.val_labels, self.val_predictions, average="macro")
         f1 = f1_score(self.val_labels, self.val_predictions, average="macro")
 
-        self.log("val_acc", acc)
-        self.log("val_precision", prec)
-        self.log("val_recall", sens)
-        self.log("val_f1", f1)
+        self.log("valid_acc", acc)
+        self.log("valid_precision", prec)
+        self.log("valid_recall", sens)
+        self.log("valid_f1", f1)
 
         self.val_labels = []
         self.val_predictions = []
