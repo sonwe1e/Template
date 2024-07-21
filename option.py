@@ -5,13 +5,11 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--save_wandb", type=bool, default=True)
-    parser.add_argument("--project", type=str, default="trick_test")
+    parser.add_argument("--project", type=str, default="")
 
     # dataset
-    parser.add_argument(
-        "--dataset_root", type=str, default="/media/hdd/DataSets/tiny-imagenet-200"
-    )
-    parser.add_argument("--image_size", type=int, default=256)
+    parser.add_argument("--dataset_root", type=str, default="")
+    parser.add_argument("-is", "--image_size", type=int, default=256)
     parser.add_argument("--mixup_cutmix_line", type=float, default=0.5)
     parser.add_argument("--mix_alpha", type=float, default=1.0)
 
@@ -23,13 +21,13 @@ def parse_args():
     parser.add_argument("--num_workers", type=int, default=8)
 
     # experiment
-    parser.add_argument("--fold", type=int, default=0)
+    parser.add_argument("-f", "--fold", type=int, default=0)
     parser.add_argument("--num_fold", type=int, default=5)
-    parser.add_argument("--devices", type=int, default=0)
-    parser.add_argument("--exp_name", type=str, default="baselinev1")
+    parser.add_argument("-d", "--devices", type=int, default=0)
+    parser.add_argument("-en", "--exp_name", type=str, default="baselinev1")
     parser.add_argument("--val_check", type=float, default=1.0)
     parser.add_argument("--log_step", type=int, default=10)
-    parser.add_argument("--gradient_clip_val", type=int, default=1000)
+    parser.add_argument("--gradient_clip_val", type=int, default=1e6)
     parser.add_argument("--accumulate_grad_batches", type=int, default=1)
 
     return parser.parse_args()
