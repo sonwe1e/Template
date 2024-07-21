@@ -17,7 +17,7 @@ if __name__ == "__main__":
     model = timm.create_model(
         "vit_little_patch16_reg1_gap_256.sbb_in12k_ft_in1k",
         pretrained=False,
-        num_classes=62,
+        num_classes=1,
         features_only=False,
     )
     ckpt = torch.load("./vit_little_patch16_reg1_gap_256.sbb_in12k_ft_in1k.bin")
