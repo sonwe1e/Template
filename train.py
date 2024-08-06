@@ -17,7 +17,7 @@ if __name__ == "__main__":
     model = timm.create_model(
         opt.model_name,
         pretrained=False,
-        num_classes=107,
+        num_classes=1,
         features_only=False,
         # drop_path_rate=0.2,
         drop_rate=0.2,

@@ -99,7 +99,6 @@ valid_transform = A.Compose(
 )
 
 
-
 class Dataset(torch.utils.data.Dataset):
     def __init__(self, phase, opt, transform=None):
         self.data_path = os.path.join(opt.dataset_root, phase)
