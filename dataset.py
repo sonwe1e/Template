@@ -13,31 +13,78 @@ from option import get_option
 
 opt = get_option()
 
+
+class Identity(A.ImageOnlyTransform):
+    def __init__(self, always_apply=False, p=1.0):
+        super(Identity, self).__init__(always_apply, p)
+
+    def apply(self, img, **params):
+        return img
+
+
 train_transform = A.Compose(
     [
-        # A.Resize(opt.image_size, opt.image_size),
-        A.Resize(int(opt.image_size / 0.875), int(opt.image_size / 0.875)),
+        A.Resize(opt.image_size, opt.image_size),
         A.RandomResizedCrop(
             opt.image_size,
             opt.image_size,
-            scale=(0.25, 1.0),
-            interpolation=np.random.choice(
-                [
-                    cv2.INTER_NEAREST,
-                    cv2.INTER_LINEAR,
-                    cv2.INTER_CUBIC,
-                    cv2.INTER_AREA,
-                    cv2.INTER_LANCZOS4,
-                ]
-            ),
+            scale=(0.49, 1.0),
         ),
-        A.HorizontalFlip(p=0.5),
-        A.VerticalFlip(p=0.5),
-        A.Rotate(p=0.5),
-        A.RandomBrightnessContrast(p=0.5),
-        A.RandomGamma(p=0.5),
-        A.GaussNoise(p=0.5),
-        A.AdvancedBlur(p=0.5),
+        A.Flip(p=0.5),
+        A.SomeOf(
+            [
+                ## Geometry
+                A.SomeOf(
+                    [
+                        A.Perspective(),
+                        A.ShiftScaleRotate(),
+                    ],
+                    n=1,
+                ),
+                A.SomeOf(
+                    [
+                        A.Equalize(),
+                        A.InvertImg(),
+                        A.Solarize(),
+                        Identity(),
+                    ],
+                    n=1,
+                ),
+                ## Color
+                A.SomeOf(
+                    [
+                        A.Sharpen(),
+                        A.Posterize(),
+                        A.RandomBrightnessContrast(),
+                        A.RandomGamma(),
+                        A.ColorJitter(),
+                    ],
+                    n=2,
+                ),
+                ## Noise
+                A.SomeOf(
+                    [
+                        A.GaussNoise(),
+                        A.ISONoise(),
+                        A.ImageCompression(),
+                    ],
+                    n=1,
+                ),
+                ## Blur
+                A.SomeOf(
+                    [
+                        A.AdvancedBlur(),
+                        A.MotionBlur(),
+                        A.Defocus(),
+                    ],
+                    n=1,
+                ),
+                ## Others
+                A.ToGray(),
+                Identity(),
+            ],
+            n=opt.aug_m,
+        ),
         A.Normalize(),
         ToTensorV2(),
     ]
@@ -50,6 +97,7 @@ valid_transform = A.Compose(
         ToTensorV2(),
     ]
 )
+
 
 
 class Dataset(torch.utils.data.Dataset):

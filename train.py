@@ -15,15 +15,13 @@ if __name__ == "__main__":
     opt = get_option()
     """定义网络"""
     model = timm.create_model(
-        "vit_little_patch16_reg1_gap_256.sbb_in12k_ft_in1k",
+        opt.model_name,
         pretrained=False,
-        num_classes=62,
+        num_classes=107,
         features_only=False,
+        # drop_path_rate=0.2,
+        drop_rate=0.2,
     )
-    ckpt = torch.load("./vit_little_patch16_reg1_gap_256.sbb_in12k_ft_in1k.bin")
-    ckpt.pop("head.weight")
-    ckpt.pop("head.bias")
-    model.load_state_dict(ckpt, strict=False)
 
     """模型编译"""
     # model = torch.compile(model)
@@ -45,7 +43,7 @@ if __name__ == "__main__":
         devices=[opt.devices],
         strategy="auto",
         max_epochs=opt.epochs,
-        precision="bf16-mixed",
+        precision=opt.precision,
         default_root_dir="./",
         deterministic=False,
         logger=wandb_logger,
@@ -56,11 +54,11 @@ if __name__ == "__main__":
         callbacks=[
             pl.callbacks.ModelCheckpoint(
                 dirpath=os.path.join("./checkpoints", opt.exp_name),
-                monitor="valid_loss",
-                mode="min",
-                save_top_k=3,
-                save_last=True,
-                filename="{epoch}-{valid_loss:.4f}",
+                monitor="valid_f1",
+                mode="max",
+                save_top_k=1,
+                save_last=False,
+                filename="{epoch}_{valid_f1:.4f}",
             ),
         ],
     )

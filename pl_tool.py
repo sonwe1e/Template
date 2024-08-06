@@ -34,13 +34,14 @@ class LightningModule(pl.LightningModule):
         self.optimizer = torch.optim.AdamW(
             self.parameters(),
             weight_decay=self.opt.weight_decay,
+            betas=(0.9, 0.95),
             lr=self.learning_rate,
         )
         self.scheduler = torch.optim.lr_scheduler.OneCycleLR(
             self.optimizer,
             max_lr=self.learning_rate,
             epochs=self.opt.epochs,
-            pct_start=0.15,
+            pct_start=0.1,
             steps_per_epoch=self.len_trainloader,
         )
         return {
@@ -54,15 +55,23 @@ class LightningModule(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         image, label = batch["image"], batch["label"]
         # self.log_image("input", batch["image"])
-        mix_rate = np.random.random()
-        if mix_rate < self.opt.mixup_cutmix_line:
+        rate = np.random.random()
+        if rate < self.opt.aug_line[0]:
             image, label_a, label_b, lam = self.mixup(
-                image, label, alpha=self.opt.mix_alpha
+                image,
+                label,
             )
-        else:
+        elif self.opt.aug_line[0] < rate < self.opt.aug_line[1]:
             image, label_a, label_b, lam = self.cutmix(
-                image, label, alpha=self.opt.mix_alpha
+                image,
+                label,
             )
+        elif self.opt.aug_line[1] < rate < self.opt.aug_line[2]:
+            image = self.cutout(image, length=64)
+            label_a, label_b, lam = label, label, 1.0
+        else:
+            label_a, label_b, lam = label, label, 1.0
+
         prediction = self(image)
         ce_loss = self.ce_loss(prediction, label_a) * lam + self.ce_loss(
             prediction, label_b
@@ -140,7 +149,7 @@ class LightningModule(pl.LightningModule):
         self.val_labels = []
         self.val_predictions = []
 
-    def mixup(self, x, y, alpha=0.8):
+    def mixup(self, x, y, alpha=1.0):
         if alpha > 0:
             lam = np.random.beta(alpha, alpha)
         else:
@@ -183,3 +192,24 @@ class LightningModule(pl.LightningModule):
         bby2 = np.clip(cy + cut_h // 2, 0, H)
 
         return bbx1, bby1, bbx2, bby2
+
+    def cutout(self, image, length=64):
+        h, w = image.size(2), image.size(3)
+
+        x_length = torch.randint(low=int(length / 5), high=length, size=(1,)).item()
+        y_length = torch.randint(low=int(length / 5), high=length, size=(1,)).item()
+        y = torch.randint(high=h, size=(1,)).item()
+        x = torch.randint(high=w, size=(1,)).item()
+
+        y1 = np.clip(y - y_length // 2, 0, h)
+        y2 = np.clip(y + y_length // 2, 0, h)
+        x1 = np.clip(x - x_length // 2, 0, w)
+        x2 = np.clip(x + x_length // 2, 0, w)
+
+        mask = torch.ones(image.size(), device=image.device)
+        if np.random.random() > 0.5:
+            mask[:, :, y1:y2, x1:x2] = 0
+        else:
+            mask[:, :, y1:y2, x1:x2] = torch.randn_like(mask[:, :, y1:y2, x1:x2])
+        masked_x = image * mask
+        return masked_x
