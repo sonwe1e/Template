@@ -3,7 +3,7 @@ import argparse
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--seed", type=int, default=3407)
+    parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--save_wandb", type=bool, default=True)
     parser.add_argument("--project", type=str, default="Test")
 
@@ -28,7 +28,7 @@ def parse_args():
     parser.add_argument("--precision", type=str, default="bf16-mixed")
     parser.add_argument("--model_name", type=str, default="efficientvit_l3.r384_in1k")
     parser.add_argument("--val_check", type=float, default=1.0)
-    parser.add_argument("--log_step", type=int, default=10)
+    parser.add_argument("--log_step", type=int, default=50)
     parser.add_argument("--gradient_clip_val", type=int, default=1e6)
     parser.add_argument("--accumulate_grad_batches", type=int, default=1)
 

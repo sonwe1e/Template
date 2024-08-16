@@ -28,7 +28,7 @@ train_transform = A.Compose(
         A.RandomResizedCrop(
             opt.image_size,
             opt.image_size,
-            scale=(0.49, 1.0),
+            scale=(0.64, 1.0),
         ),
         A.Flip(p=0.5),
         A.SomeOf(
@@ -104,14 +104,18 @@ class Dataset(torch.utils.data.Dataset):
         self.data_path = os.path.join(opt.dataset_root, phase)
         with open(os.path.join(opt.dataset_root, "label_mapping.json")) as f:
             self.label_mapping = json.load(f)
-        self.image_list = glob.glob(os.path.join(self.data_path, "*/*.JPEG"))
-        for _, i in enumerate(self.image_list):
+        self.image_list = glob.glob(os.path.join(self.data_path, "*/*.png"))
+        new_image_list = []
+
+        for idx, image in enumerate(self.image_list):
             if phase == "train":
-                if (_ + opt.fold) % opt.num_fold == 0:
-                    self.image_list.remove(i)
+                if (idx + opt.fold) % opt.num_fold != 0:
+                    new_image_list.append(image)
             elif phase == "valid":
-                if (_ + opt.fold) % opt.num_fold != 0:
-                    self.image_list.remove(i)
+                if (idx + opt.fold) % opt.num_fold == 0:
+                    new_image_list.append(image)
+
+        self.image_list = new_image_list
         self.transform = transform
 
     def __getitem__(self, index):

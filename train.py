@@ -20,17 +20,15 @@ if __name__ == "__main__":
         num_classes=1,
         features_only=False,
         # drop_path_rate=0.2,
-        drop_rate=0.2,
+        drop_rate=0.5,
     )
 
     """模型编译"""
     # model = torch.compile(model)
-
     """导入数据集"""
     train_dataloader, valid_dataloader = get_dataloader(opt)
 
     """Lightning 模块定义"""
-    pl.seed_everything(opt.seed)
     wandb_logger = WandbLogger(
         project=opt.project,
         name=opt.exp_name,
@@ -58,7 +56,7 @@ if __name__ == "__main__":
                 mode="max",
                 save_top_k=1,
                 save_last=False,
-                filename="{epoch}_{valid_f1:.4f}",
+                filename=f"fold={opt.fold}_" + "{epoch}_{valid_f1:.4f}",
             ),
         ],
     )
