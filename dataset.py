@@ -31,25 +31,9 @@ train_transform = A.Compose(
             scale=(0.64, 1.0),
         ),
         A.Flip(p=0.5),
+        A.ShiftScaleRotate(p=0.5),
         A.SomeOf(
             [
-                ## Geometry
-                A.SomeOf(
-                    [
-                        A.Perspective(),
-                        A.ShiftScaleRotate(),
-                    ],
-                    n=1,
-                ),
-                A.SomeOf(
-                    [
-                        A.Equalize(),
-                        A.InvertImg(),
-                        A.Solarize(),
-                        Identity(),
-                    ],
-                    n=1,
-                ),
                 ## Color
                 A.SomeOf(
                     [
@@ -61,24 +45,12 @@ train_transform = A.Compose(
                     ],
                     n=2,
                 ),
+                ## CLAHE
+                A.CLAHE(),
                 ## Noise
-                A.SomeOf(
-                    [
-                        A.GaussNoise(),
-                        A.ISONoise(),
-                        A.ImageCompression(),
-                    ],
-                    n=1,
-                ),
+                A.GaussNoise(),
                 ## Blur
-                A.SomeOf(
-                    [
-                        A.AdvancedBlur(),
-                        A.MotionBlur(),
-                        A.Defocus(),
-                    ],
-                    n=1,
-                ),
+                A.AdvancedBlur(),
                 ## Others
                 A.ToGray(),
                 Identity(),

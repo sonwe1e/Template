@@ -10,8 +10,8 @@ def parse_args():
     # dataset
     parser.add_argument("--dataset_root", type=str, default="")
     parser.add_argument("-is", "--image_size", type=int, default=384)
-    parser.add_argument("--aug_line", type=list, default=[0.4, 0.95, 1.0])
-    parser.add_argument("--aug_m", type=int, default=3)
+    parser.add_argument("--mix_line", type=float, default=0.45)
+    parser.add_argument("--aug_m", type=int, default=2)
 
     # training setups
     parser.add_argument("-wd", "--weight_decay", type=float, default=5e-2)
@@ -26,9 +26,9 @@ def parse_args():
     parser.add_argument("-d", "--devices", type=int, default=0)
     parser.add_argument("-en", "--exp_name", type=str, default="baselinev1")
     parser.add_argument("--precision", type=str, default="bf16-mixed")
-    parser.add_argument("--model_name", type=str, default="efficientvit_l3.r384_in1k")
+    parser.add_argument("--model_name", type=str, default="efficientvit_l1.r256_in1k")
     parser.add_argument("--val_check", type=float, default=1.0)
-    parser.add_argument("--log_step", type=int, default=50)
+    parser.add_argument("--log_step", type=int, default=20)
     parser.add_argument("--gradient_clip_val", type=int, default=1e6)
     parser.add_argument("--accumulate_grad_batches", type=int, default=1)
 
