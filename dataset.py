@@ -73,6 +73,7 @@ valid_transform = A.Compose(
 
 class Dataset(torch.utils.data.Dataset):
     def __init__(self, phase, opt, transform=None):
+        self.phase = phase
         self.data_path = os.path.join(opt.dataset_root, phase)
         with open(os.path.join(opt.dataset_root, "label_mapping.json")) as f:
             self.label_mapping = json.load(f)
@@ -101,18 +102,22 @@ class Dataset(torch.utils.data.Dataset):
         )
         image_b = cv2.resize(image_b, image_a.shape[:2][::-1])
         label_b = self.label_mapping[self.image_list[random_index].split("/")[-2]]
-        if random.random() < self.mixup_rate:
-            lam = np.random.beta(0.8, 0.8)
-            image = lam * image + (1 - lam) * random_image
-        elif self.mixup_rate < random.random() < self.cutmix_rate:
-            lam = np.random.beta(1.0, 1.0)
-            image = self.cutmix(image_a, image_b, lam)
-        else:
-            if random.random() < 0.5:
-                image = self.random_erasing(image_a)
+        if self.phase == "train":
+            if random.random() < self.mixup_rate:
+                lam = np.random.beta(0.8, 0.8)
+                image = lam * image + (1 - lam) * random_image
+            elif self.mixup_rate < random.random() < self.cutmix_rate:
+                lam = np.random.beta(1.0, 1.0)
+                image = self.cutmix(image_a, image_b, lam)
             else:
-                image, label = image_a, label_a
-                lam = 1.0
+                if random.random() < 0.5:
+                    image = self.random_erasing(image_a)
+                else:
+                    image, label_a, label_b = image_a, label_a, label_a
+                    lam = 1.0
+        else:
+            image = image_a
+            lam = 1.0
         if self.transform is not None:
             image = self.transform(image=image)["image"]
         return {
