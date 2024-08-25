@@ -54,16 +54,22 @@ class LightningModule(pl.LightningModule):
         }
 
     def training_step(self, batch, batch_idx):
-        image, label = batch["image"], batch["label"]
+        image, label_a, label_b, lam = (
+            batch["image"],
+            batch["label_a"],
+            batch["label_b"],
+            batch["lam"],
+        )
         # self.log_image("input", batch["image"])
         prediction = self(image)
         ce_loss = self.ce_loss(prediction, label_a) * lam + self.ce_loss(
             prediction, label_b
         ) * (1 - lam)
+        ce_loss = ce_loss.mean()
         prediction = torch.argmax(prediction, dim=1)
         # prediction = torch.round(torch.sigmoid(prediction))
         self.train_predictions.append(prediction)
-        self.train_labels.append(label)
+        self.train_labels.append(label_a)
         loss = ce_loss
         self.log("train_ce_loss", ce_loss)
         self.log("train_loss", loss)
@@ -71,15 +77,16 @@ class LightningModule(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        image, label = batch["image"], batch["label"]
+        image, label = batch["image"], batch["label_a"]
         # self.log_image("input", batch["image"])
         prediction = self(image)
         ce_loss = self.ce_loss(prediction, label)
+        ce_loss = ce_loss.mean()
         prediction = torch.argmax(prediction, dim=1)
         # prediction = torch.round(torch.sigmoid(prediction))
         self.val_predictions.append(prediction)
         self.val_labels.append(label)
-        loss = ce_loss
+        loss = ce_loss.mean()
         self.log("valid_ce_loss", ce_loss)
         self.log("valid_loss", loss)
 
