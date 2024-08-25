@@ -105,19 +105,23 @@ class Dataset(torch.utils.data.Dataset):
         if self.phase == "train":
             if random.random() < self.mixup_rate:
                 lam = np.random.beta(0.8, 0.8)
-                image = lam * image + (1 - lam) * random_image
+                image = lam * image_a + (1 - lam) * image_b
             elif self.mixup_rate < random.random() < self.cutmix_rate:
                 lam = np.random.beta(1.0, 1.0)
                 image = self.cutmix(image_a, image_b, lam)
             else:
                 if random.random() < 0.5:
                     image = self.random_erasing(image_a)
+                    label_a, label_b = label_a, label_a
+                    lam = 1.0
                 else:
                     image, label_a, label_b = image_a, label_a, label_a
                     lam = 1.0
         else:
             image = image_a
+            image, label_a, label_b = image_a, label_a, label_a
             lam = 1.0
+        image = image.astype(np.uint8)
         if self.transform is not None:
             image = self.transform(image=image)["image"]
         return {
@@ -125,7 +129,7 @@ class Dataset(torch.utils.data.Dataset):
             "label_a": label_a,
             "label_b": label_b,
             "lam": lam,
-            "image_path": self.image_list[index],
+            "image_path": name,
         }
 
     def __len__(self):
