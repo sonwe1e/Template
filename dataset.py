@@ -74,8 +74,8 @@ valid_transform = A.Compose(
 class Dataset(torch.utils.data.Dataset):
     def __init__(self, phase, opt, train_transform=None, valid_transform=None):
         self.phase = phase
-        self.image_list = new_image_list
-        self.transform = transforms
+        self.train_transform = train_transform
+        self.valid_transform = valid_transform
         self.mixup_rate = opt.mix_rate[0]
         self.cutmix_rate = opt.mix_rate[1]
 
@@ -92,6 +92,7 @@ class Dataset(torch.utils.data.Dataset):
             elif phase == "valid":
                 if (idx + opt.fold) % opt.num_fold == 0:
                     new_image_list.append(image)
+        self.image_list = new_image_list
 
     def __getitem__(self, index):
         image_a, label_a, name = self.preloaded_data[index]
