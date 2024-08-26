@@ -72,8 +72,13 @@ valid_transform = A.Compose(
 
 
 class Dataset(torch.utils.data.Dataset):
-    def __init__(self, phase, opt, transform=None):
+    def __init__(self, phase, opt, train_transform=None, valid_transform=None):
         self.phase = phase
+        self.image_list = new_image_list
+        self.transform = transforms
+        self.mixup_rate = opt.mix_rate[0]
+        self.cutmix_rate = opt.mix_rate[1]
+
         self.data_path = os.path.join(opt.dataset_root, phase)
         with open(os.path.join(opt.dataset_root, "label_mapping.json")) as f:
             self.label_mapping = json.load(f)
@@ -88,42 +93,32 @@ class Dataset(torch.utils.data.Dataset):
                 if (idx + opt.fold) % opt.num_fold == 0:
                     new_image_list.append(image)
 
-        self.image_list = new_image_list
-        self.transform = transforms
-        self.mixup_rate = opt.mix_rate[0]
-        self.cutmix_rate = opt.mix_rate[1]
-
     def __getitem__(self, index):
-        image_a = cv2.cvtColor(cv2.imread(self.image_list[index]), cv2.COLOR_BGR2RGB)
-        label_a = self.label_mapping[self.image_list[index].split("/")[-2]]
+        image_a, label_a, name = self.preloaded_data[index]
         random_index = random.randint(0, len(self.image_list) - 1)
-        image_b = cv2.cvtColor(
-            cv2.imread(self.image_list[random_index]), cv2.COLOR_BGR2RGB
-        )
+        image_b, label_b, _ = self.preloaded_data[random_index]
         image_b = cv2.resize(image_b, image_a.shape[:2][::-1])
-        label_b = self.label_mapping[self.image_list[random_index].split("/")[-2]]
+
+        image, lam = image_a, 1.0
+
         if self.phase == "train":
             if random.random() < self.mixup_rate:
                 lam = np.random.beta(0.8, 0.8)
-                image = lam * image_a + (1 - lam) * image_b
+                image = (lam * image_a + (1 - lam) * image_b).astype(np.uint8)
+                image = self.valid_transform(image=image)["image"]
             elif self.mixup_rate < random.random() < self.cutmix_rate:
                 lam = np.random.beta(1.0, 1.0)
                 image = self.cutmix(image_a, image_b, lam)
+                image = self.valid_transform(image=image)["image"]
             else:
                 if random.random() < 0.5:
                     image = self.random_erasing(image_a)
-                    label_a, label_b = label_a, label_a
-                    lam = 1.0
-                else:
-                    image, label_a, label_b = image_a, label_a, label_a
-                    lam = 1.0
+                image = self.train_transform(image=image)["image"]
+                label_b = label_a
         else:
-            image = image_a
-            image, label_a, label_b = image_a, label_a, label_a
-            lam = 1.0
-        image = image.astype(np.uint8)
-        if self.transform is not None:
-            image = self.transform(image=image)["image"]
+            image = self.valid_transform(image=image)["image"]
+            label_b = label_a
+
         return {
             "image": image,
             "label_a": label_a,
@@ -183,8 +178,18 @@ class Dataset(torch.utils.data.Dataset):
 
 
 def get_dataloader(opt):
-    train_dataset = Dataset(phase="train", opt=opt, transform=train_transform)
-    valid_dataset = Dataset(phase="valid", opt=opt, transform=valid_transform)
+    train_dataset = Dataset(
+        phase="train",
+        opt=opt,
+        train_transform=train_transform,
+        valid_transform=valid_transform,
+    )
+    valid_dataset = Dataset(
+        phase="valid",
+        opt=opt,
+        train_transform=train_transform,
+        valid_transform=valid_transform,
+    )
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=opt.batch_size,
