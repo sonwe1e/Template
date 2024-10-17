@@ -4,9 +4,8 @@ from dataset import *
 from pl_tool import *
 import lightning.pytorch as pl
 from lightning.pytorch.loggers import WandbLogger
-import torch
 import wandb
-import timm
+import os
 
 torch.set_float32_matmul_precision("high")
 
@@ -14,15 +13,10 @@ torch.set_float32_matmul_precision("high")
 if __name__ == "__main__":
     opt = get_option()
     """定义网络"""
-    model = timm.create_model(
-        opt.model_name,
-        pretrained=False,
-        num_classes=1,
-        features_only=False,
-        # drop_path_rate=0.2,
-        drop_rate=0.5,
-    )
+    import timm
+    import segmentation_models_pytorch as smp
 
+    model = Model()
     """模型编译"""
     # model = torch.compile(model)
     """导入数据集"""
@@ -52,11 +46,11 @@ if __name__ == "__main__":
         callbacks=[
             pl.callbacks.ModelCheckpoint(
                 dirpath=os.path.join("./checkpoints", opt.exp_name),
-                monitor="valid_f1",
-                mode="max",
+                monitor="valid_loss",
+                mode="min",
                 save_top_k=1,
                 save_last=False,
-                filename=f"fold={opt.fold}_" + "{epoch}_{valid_f1:.4f}",
+                filename="{epoch}_{valid_loss:.3f}",
             ),
         ],
     )
