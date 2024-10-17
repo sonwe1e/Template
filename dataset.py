@@ -24,7 +24,7 @@ train_transform = A.Compose(
             opt.image_size,
             scale=(0.64, 1.0),
         ),
-        A.Flip(p=0.5),
+        A.D4(p=0.5),
         A.ShiftScaleRotate(p=0.5),
         A.SomeOf(
             [
