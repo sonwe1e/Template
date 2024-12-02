@@ -106,6 +106,7 @@ def get_dataloader(opt):
         shuffle=True,
         num_workers=opt.num_workers,
         pin_memory=True,
+        persistent_workers=True,
     )
     valid_dataloader = torch.utils.data.DataLoader(
         valid_dataset,
@@ -113,6 +114,7 @@ def get_dataloader(opt):
         shuffle=False,
         num_workers=opt.num_workers,
         pin_memory=True,
+        persistent_workers=True,
     )
     return train_dataloader, valid_dataloader
 
