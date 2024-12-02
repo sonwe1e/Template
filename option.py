@@ -11,6 +11,9 @@ def parse_args():
     parser.add_argument("--data_path", type=str, default="")
     parser.add_argument("-is", "--image_size", type=int, default=384)
     parser.add_argument("--aug_m", type=int, default=2)
+    parser.add_argument("--num_classes", type=int, default=1000)
+    parser.add_argument("--in_chans", type=int, default=3)
+    parser.add_argument("--model_name", type=str, default="resnet18d.ra2_in1k")
 
     # training setups
     parser.add_argument("-wd", "--weight_decay", type=float, default=5e-2)
