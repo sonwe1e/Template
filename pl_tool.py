@@ -11,7 +11,7 @@ class LightningModule(pl.LightningModule):
         self.len_trainloader = len_trainloader
         self.opt = opt
         self.model = model
-        self.xx_loss = torch.nn.Loss()
+        self.ce_loss = torch.nn.CrossEntropyLoss()
 
     def forward(self, x):
         pred = self.model(x)
@@ -44,9 +44,9 @@ class LightningModule(pl.LightningModule):
         image, label = (batch["image"], batch["label"])
         # self.log_image("input", batch["image"])
         prediction = self(image)
-        xx_loss = self.xx_loss(prediction, label)
-        loss = xx_loss
-        self.log("train_xx_loss", xx_loss)
+        ce_loss = self.ce_loss(prediction, label)
+        loss = ce_loss
+        self.log("train_ce_loss", ce_loss)
         self.log("train_loss", loss)
         self.log("learning_rate", self.scheduler.get_last_lr()[0])
         return loss
@@ -55,9 +55,9 @@ class LightningModule(pl.LightningModule):
         image, label = (batch["image"], batch["label"])
         # self.log_image("input", batch["image"])
         prediction = self(image)
-        xx_loss = self.xx_loss(prediction, label)
-        loss = xx_loss
-        self.log("valid_ce_loss", xx_loss)
+        ce_loss = self.ce_loss(prediction, label)
+        loss = ce_loss
+        self.log("valid_ce_loss", ce_loss)
         self.log("valid_loss", loss)
 
     def on_train_epoch_end(self):
