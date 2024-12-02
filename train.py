@@ -14,11 +14,15 @@ if __name__ == "__main__":
     opt = get_option()
     """定义网络"""
     import timm
-    import segmentation_models_pytorch as smp
 
-    model = Model()
+    model = timm.create_model(
+        opt.model_name,
+        num_classes=opt.num_classes,
+        in_chans=opt.in_chans,
+        pretrained=opt.pretrained,
+    )
     """模型编译"""
-    # model = torch.compile(model)
+    model = torch.compile(model)
     """导入数据集"""
     train_dataloader, valid_dataloader = get_dataloader(opt)
 
@@ -37,7 +41,6 @@ if __name__ == "__main__":
         max_epochs=opt.epochs,
         precision=opt.precision,
         default_root_dir="./",
-        deterministic=False,
         logger=wandb_logger,
         val_check_interval=opt.val_check,
         log_every_n_steps=opt.log_step,
