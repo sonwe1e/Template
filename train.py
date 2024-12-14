@@ -63,5 +63,6 @@ if __name__ == "__main__":
         LightningModule(opt, model, len(train_dataloader)),
         train_dataloaders=train_dataloader,
         val_dataloaders=valid_dataloader,
+        ckpt_path=opt.resume,
     )
     wandb.finish()
