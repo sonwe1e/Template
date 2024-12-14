@@ -1,7 +1,7 @@
 import torch
 from option import get_option
 from dataset import *
-from pl_tool_classify import *
+from pl_tool import *
 import lightning.pytorch as pl
 from lightning.pytorch.loggers import WandbLogger
 import wandb
