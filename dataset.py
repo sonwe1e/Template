@@ -19,26 +19,13 @@ class Identity(A.ImageOnlyTransform):
 train_transform = A.Compose(
     [
         A.Resize(opt.image_size, opt.image_size),
-        A.RandomResizedCrop(
-            opt.image_size,
-            opt.image_size,
-            scale=(0.64, 1.0),
-        ),
         A.D4(p=0.5),
         A.ShiftScaleRotate(p=0.5),
         A.SomeOf(
             [
                 ## Color
-                A.SomeOf(
-                    [
-                        A.Sharpen(),
-                        A.Posterize(),
-                        A.RandomBrightnessContrast(),
-                        A.RandomGamma(),
-                        A.ColorJitter(),
-                    ],
-                    n=2,
-                ),
+                A.RandomBrightnessContrast(),
+                A.RandomGamma(),
                 ## CLAHE
                 A.CLAHE(),
                 ## Noise

@@ -25,10 +25,13 @@ def parse_args():
     )
     parser.add_argument("--in_chans", type=int, default=3, help="输入图像的通道数")
     parser.add_argument(
-        "--model_name", type=str, default="resnet18d.ra2_in1k", help="使用的模型名称"
+        "--num_workers", type=int, default=8, help="用于数据加载的并行线程数"
     )
 
     # training setups
+    parser.add_argument(
+        "--model_name", type=str, default="resnet18d.ra2_in1k", help="使用的模型名称"
+    )
     parser.add_argument(
         "-wd",
         "--weight_decay",
@@ -41,9 +44,6 @@ def parse_args():
     )
     parser.add_argument("-bs", "--batch_size", type=int, default=32, help="批次大小")
     parser.add_argument("-e", "--epochs", type=int, default=500, help="训练的总轮数")
-    parser.add_argument(
-        "--num_workers", type=int, default=8, help="用于数据加载的并行线程数"
-    )
 
     # experiment
     parser.add_argument(
@@ -57,7 +57,7 @@ def parse_args():
         "-en", "--exp_name", type=str, default="baselinev1", help="实验名称"
     )
     parser.add_argument(
-        "--resume", type=str, default="", help="模型恢复的 checkpoint 路径"
+        "--resume", type=str, default=None, help="模型恢复的 checkpoint 路径"
     )
     parser.add_argument(
         "--precision",
@@ -79,7 +79,7 @@ def parse_args():
     )
     parser.add_argument(
         "--gradient_clip_val",
-        type=int,
+        type=float,
         default=1e6,
         help="梯度裁剪的最大值，用于防止梯度爆炸，默认不使用",
     )

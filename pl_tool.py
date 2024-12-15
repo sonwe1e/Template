@@ -59,9 +59,9 @@ class LightningModule(pl.LightningModule):
         loss = ce_loss
         self.train_preds.append(prediction)  # 存储预测值
         self.train_labels.append(label)  # 存储真实值
-        self.log("train_ce_loss", ce_loss)  # 记录训练交叉熵损失
-        self.log("train_loss", loss)  # 记录训练损失
-        self.log("learning_rate", self.scheduler.get_last_lr()[0])  # 记录学习率
+        self.log("loss/train_ce_loss", ce_loss)  # 记录训练交叉熵损失
+        self.log("loss/train_loss", loss)  # 记录训练损失
+        self.log("trainer/learning_rate", self.scheduler.get_last_lr()[0])  # 记录学习率
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -72,8 +72,8 @@ class LightningModule(pl.LightningModule):
         loss = ce_loss
         self.valid_preds.append(prediction)  # 存储预测值
         self.valid_labels.append(label)  # 存储真实值
-        self.log("valid_ce_loss", ce_loss)  # 记录验证交叉熵损失
-        self.log("valid_loss", loss)  # 记录验证损失
+        self.log("loss/valid_ce_loss", ce_loss)  # 记录验证交叉熵损失
+        self.log("loss/valid_loss", loss)  # 记录验证损失
 
     def on_train_epoch_end(self):
         """训练周期结束时执行"""
@@ -89,15 +89,15 @@ class LightningModule(pl.LightningModule):
                 if confusionmatrix[i].sum() > 0
                 else 0
             )
-            self.log(f"acc/train_acc_class_{i}", class_acc)  # 记录每个类别的准确率
+            self.log(
+                f"train_metric/train_acc_class_{i}", class_acc
+            )  # 记录每个类别的准确率
 
-        self.log("acc/train_acc", confusionmatrix.diag().sum() / confusionmatrix.sum())
-        self.log("train_f1", f1)
-        self.log_image(
-            "confusion_matrix/train_confusion_matrix",
-            confusionmatrix,
-            self.current_epoch,
+        self.log(
+            "train_metric/train_acc",
+            confusionmatrix.diag().sum() / confusionmatrix.sum(),
         )
+        self.log("train_metric/train_f1", f1)
 
         # 清空存储
         self.train_preds = []
@@ -119,15 +119,15 @@ class LightningModule(pl.LightningModule):
                 if confusionmatrix[i].sum() > 0
                 else 0
             )
-            self.log(f"acc/valid_acc_class_{i}", class_acc)  # 记录每个类别的准确率
+            self.log(
+                f"valid_metric/valid_acc_class_{i}", class_acc
+            )  # 记录每个类别的准确率
 
-        self.log("acc/valid_acc", confusionmatrix.diag().sum() / confusionmatrix.sum())
-        self.log("valid_f1", f1)  # 记录整体F1分数
-        self.log_image(
-            "confusion_matrix/valid_confusion_matrix",
-            confusionmatrix,
-            self.current_epoch,
-        )  # 记录验证混淆矩阵图像
+        self.log(
+            "valid_metric/valid_acc",
+            confusionmatrix.diag().sum() / confusionmatrix.sum(),
+        )
+        self.log("valid_metric/valid_f1", f1)  # 记录整体F1分数
 
         # 清空存储
         self.valid_preds = []
