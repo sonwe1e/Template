@@ -32,16 +32,13 @@ class LightningModule(pl.LightningModule):
         self.optimizer = torch.optim.AdamW(
             self.parameters(),
             weight_decay=self.opt.weight_decay,
-            betas=(0.9, 0.95),
             lr=self.learning_rate,
         )
         self.scheduler = torch.optim.lr_scheduler.OneCycleLR(
             self.optimizer,
             max_lr=self.learning_rate,
             epochs=self.opt.epochs,
-            pct_start=0.06,
             steps_per_epoch=self.len_trainloader,
-            anneal_strategy="linear",
         )
         return {
             "optimizer": self.optimizer,
@@ -61,7 +58,7 @@ class LightningModule(pl.LightningModule):
         self.train_labels.append(label)  # 存储真实值
         self.log("loss/train_ce_loss", ce_loss)  # 记录训练交叉熵损失
         self.log("loss/train_loss", loss)  # 记录训练损失
-        self.log("trainer/learning_rate", self.scheduler.get_last_lr()[0])  # 记录学习率
+        self.log("trainer/learning_rate", self.optimizer.param_groups[0]["lr"])
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -83,21 +80,11 @@ class LightningModule(pl.LightningModule):
         confusionmatrix = self.confusion_matrix(preds, train_labels)  # 计算混淆矩阵
         f1 = self.f1_score(preds, train_labels)  # 计算F1分数
 
-        for i in range(self.opt.num_classes):  # 计算每个类别的准确率
-            class_acc = (
-                confusionmatrix[i, i] / confusionmatrix[i].sum()
-                if confusionmatrix[i].sum() > 0
-                else 0
-            )
-            self.log(
-                f"train_metric/train_acc_class_{i}", class_acc
-            )  # 记录每个类别的准确率
-
         self.log(
-            "train_metric/train_acc",
+            "metric/train_acc",
             confusionmatrix.diag().sum() / confusionmatrix.sum(),
         )
-        self.log("train_metric/train_f1", f1)
+        self.log("metric/train_f1", f1)
 
         # 清空存储
         self.train_preds = []
@@ -107,27 +94,17 @@ class LightningModule(pl.LightningModule):
 
     def on_validation_epoch_end(self):
         """验证周期结束时执行"""
-        # 连接所有预测结果和标签
         valid_preds = torch.cat(self.valid_preds, 0)
         valid_labels = torch.cat(self.valid_labels, 0)
         preds = torch.argmax(valid_preds, dim=1)  # 获取预测类别
         confusionmatrix = self.confusion_matrix(preds, valid_labels)  # 计算混淆矩阵
         f1 = self.f1_score(preds, valid_labels)  # 计算F1分数
-        for i in range(self.opt.num_classes):  # 计算每个类别的准确率
-            class_acc = (
-                confusionmatrix[i, i] / confusionmatrix[i].sum()
-                if confusionmatrix[i].sum() > 0
-                else 0
-            )
-            self.log(
-                f"valid_metric/valid_acc_class_{i}", class_acc
-            )  # 记录每个类别的准确率
 
         self.log(
-            "valid_metric/valid_acc",
+            "metric/valid_acc",
             confusionmatrix.diag().sum() / confusionmatrix.sum(),
         )
-        self.log("valid_metric/valid_f1", f1)  # 记录整体F1分数
+        self.log("metric/valid_f1", f1)  # 记录整体F1分数
 
         # 清空存储
         self.valid_preds = []

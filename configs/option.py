@@ -4,7 +4,7 @@ from pathlib import Path
 import os
 
 
-def parse_args():
+def get_option():
     # 首先读取YAML配置文件
     current_dir = os.path.dirname(os.path.abspath(__file__))
     # 构建 config.yaml 的绝对路径
@@ -67,10 +67,11 @@ def parse_args():
                 f"Warning: Config file {args.config} not found. Using default values from original config.yaml or command line."
             )
 
-    # 使用命令行参数覆盖 YAML 配置
-    for key, value in vars(args).items():
-        if key != "config" and value != yaml_config.get(key):
-            yaml_config[key] = value
+    print("-" * 30)
+    print("Current Configuration:")
+    for key, value in yaml_config.items():
+        print(f"{key}: {value}")
+    print("-" * 30)
 
     return argparse.Namespace(**yaml_config)
 
