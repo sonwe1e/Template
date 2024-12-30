@@ -56,6 +56,15 @@ if __name__ == "__main__":
                 filename="epoch_{epoch}-loss_{loss/valid_loss:.3f}",
                 auto_insert_metric_name=False,  # 使用 f-string 和 replace
             ),
+            pl.callbacks.ModelCheckpoint(
+                dirpath=os.path.join("./checkpoints", opt.exp_name),
+                monitor="metric/valid_acc",
+                mode="max",
+                save_top_k=1,
+                save_last=False,
+                filename="epoch_{epoch}-acc_{metric/valid_acc:.3f}",
+                auto_insert_metric_name=False,  # 使用 f-string 和 replace
+            ),
         ],
     )
 

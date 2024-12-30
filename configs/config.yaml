@@ -30,4 +30,4 @@ accumulate_grad_batches: 1  # 梯度累积的 batch 数，用于模拟更大的 
 
 # ===== 监控配置 =====
 val_check: 1.0  # 验证集频率，当容易出现过拟合现象的时候可以设置较小的值找到比较好的 checkpoint
-log_step: 20  # 日志记录的频率，例如每训练 log_step 个 batch 记录一次
+log_step: 50  # 日志记录的频率，例如每训练 log_step 个 batch 记录一次

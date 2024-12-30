@@ -1,29 +1,8 @@
 import torch
-from PIL import Image
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
 from configs.option import get_option
-
-opt = get_option()
-
-
-train_transform = A.Compose(
-    [
-        A.Resize(opt.image_size, opt.image_size),
-        A.Normalize(),
-        ToTensorV2(),
-    ]
-)
-
-valid_transform = A.Compose(
-    [
-        A.Resize(opt.image_size, opt.image_size),
-        A.Normalize(),
-        ToTensorV2(),
-    ]
-)
+from .augments import train_transform, valid_transform
 
 
 class Dataset(torch.utils.data.Dataset):
