@@ -1,0 +1,29 @@
+# 基础设置
+seed: 42  # 随机种子，用于确保实验的可重复性
+save_wandb: true  # 是否将训练过程的指标保存到 wandb
+project: "Test"  # wandb 项目名称
+
+# 数据集配置
+data_path: ""  # 数据集路径
+image_size: 384  # 输入图像的大小
+num_classes: 3  # 分类任务的类别数量
+in_chans: 3  # 输入图像的通道数
+num_workers: 8  # 用于数据加载的并行线程数
+
+# 训练配置
+model_name: "resnet18d.ra2_in1k"  # 使用的模型名称
+pretrained: True
+weight_decay: 0.05  # 权重衰减系数，用于防止过拟合
+learning_rate: 0.0004  # 学习率
+batch_size: 32  # 批次大小
+epochs: 100  # 训练的总轮数
+
+# 实验配置
+devices: 0  # 使用的 GPU 设备 ID，一般不使用多卡，使用多卡修改为列表 [0, 1]
+exp_name: "baselinev1"  # 实验名称
+resume: null  # 模型恢复的 checkpoint 路径
+precision: "bf16-mixed"  # 训练使用的精度模式，常见选择包括 32，16，bf16-mixed
+val_check: 1.0  # 验证集频率，当容易出现过拟合现象的时候可以设置较小的值找到比较好的 checkpoint
+log_step: 20  # 日志记录的频率，例如每训练 log_step 个 batch 记录一次
+gradient_clip_val: 1000000.0  # 梯度裁剪的最大值，用于防止梯度爆炸，默认不使用
+accumulate_grad_batches: 1  # 梯度累积的 batch 数，用于模拟更大的 batch size，默认不使用
