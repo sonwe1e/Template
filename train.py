@@ -1,7 +1,7 @@
 import torch
-from option import get_option
-from dataset import *
-from pl_tool import *
+from configs.option import get_option
+from tools.datasets.datasets import *
+from tools.pl_tool import *
 import lightning.pytorch as pl
 from lightning.pytorch.loggers import WandbLogger
 import wandb
@@ -22,7 +22,7 @@ if __name__ == "__main__":
         pretrained=opt.pretrained,
     )
     """模型编译"""
-    model = torch.compile(model)
+    # model = torch.compile(model)
     """导入数据集"""
     train_dataloader, valid_dataloader = get_dataloader(opt)
 
@@ -49,11 +49,21 @@ if __name__ == "__main__":
         callbacks=[
             pl.callbacks.ModelCheckpoint(
                 dirpath=os.path.join("./checkpoints", opt.exp_name),
-                monitor="valid_loss",
+                monitor="loss/valid_loss",
                 mode="min",
                 save_top_k=1,
                 save_last=False,
-                filename="{epoch}_{valid_loss:.3f}",
+                filename="epoch_{epoch}-loss_{loss/valid_loss:.3f}",
+                auto_insert_metric_name=False,  # 使用 f-string 和 replace
+            ),
+            pl.callbacks.ModelCheckpoint(
+                dirpath=os.path.join("./checkpoints", opt.exp_name),
+                monitor="metric/valid_acc",
+                mode="max",
+                save_top_k=1,
+                save_last=False,
+                filename="epoch_{epoch}-acc_{metric/valid_acc:.3f}",
+                auto_insert_metric_name=False,  # 使用 f-string 和 replace
             ),
         ],
     )

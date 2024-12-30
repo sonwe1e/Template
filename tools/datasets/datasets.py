@@ -1,68 +1,8 @@
 import torch
-from PIL import Image
+import numpy as np
 from concurrent.futures import ThreadPoolExecutor
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
-from option import get_option
-
-opt = get_option()
-
-
-class Identity(A.ImageOnlyTransform):
-    def __init__(self, always_apply=False, p=1.0):
-        super(Identity, self).__init__(always_apply, p)
-
-    def apply(self, img, **params):
-        return img
-
-
-train_transform = A.Compose(
-    [
-        A.Resize(opt.image_size, opt.image_size),
-        A.RandomResizedCrop(
-            opt.image_size,
-            opt.image_size,
-            scale=(0.64, 1.0),
-        ),
-        A.D4(p=0.5),
-        A.ShiftScaleRotate(p=0.5),
-        A.SomeOf(
-            [
-                ## Color
-                A.SomeOf(
-                    [
-                        A.Sharpen(),
-                        A.Posterize(),
-                        A.RandomBrightnessContrast(),
-                        A.RandomGamma(),
-                        A.ColorJitter(),
-                    ],
-                    n=2,
-                ),
-                ## CLAHE
-                A.CLAHE(),
-                ## Noise
-                A.GaussNoise(),
-                ## Blur
-                A.AdvancedBlur(),
-                ## Others
-                A.ToGray(),
-                Identity(),
-            ],
-            n=opt.aug_m,
-        ),
-        A.Normalize(),
-        ToTensorV2(),
-    ]
-)
-
-valid_transform = A.Compose(
-    [
-        A.Resize(opt.image_size, opt.image_size),
-        A.Normalize(),
-        ToTensorV2(),
-    ]
-)
+from configs.option import get_option
+from .augments import train_transform, valid_transform
 
 
 class Dataset(torch.utils.data.Dataset):
@@ -70,10 +10,14 @@ class Dataset(torch.utils.data.Dataset):
         self.phase = phase
         self.data_path = opt.data_path
         self.transform = train_transform if phase == "train" else valid_transform
+        self.image_list = [0] * 100
 
     def __getitem__(self, index):
-        image = 0
+        image = np.random.randint(0, 255, (256, 256, 3)).astype(np.uint8)
         label = 1
+        if self.transform is not None:
+            augmented = self.transform(image=image)
+            image = augmented["image"]
         return {"image": image, "label": label}
 
     def __len__(self):
@@ -106,7 +50,6 @@ def get_dataloader(opt):
         shuffle=True,
         num_workers=opt.num_workers,
         pin_memory=True,
-        persistent_workers=True,
     )
     valid_dataloader = torch.utils.data.DataLoader(
         valid_dataset,
@@ -114,7 +57,6 @@ def get_dataloader(opt):
         shuffle=False,
         num_workers=opt.num_workers,
         pin_memory=True,
-        persistent_workers=True,
     )
     return train_dataloader, valid_dataloader
 
